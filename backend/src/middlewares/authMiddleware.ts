@@ -55,3 +55,10 @@ export const requireEngineerOrAdmin = () => {
 export const requireApprover = () => {
   return requireRole('APPROVER', 'ADMIN');
 };
+
+/**
+ * Shorthand: Require ADMIN role only
+ */
+export const requireAdmin = () => {
+  return requireRole('ADMIN');
+};

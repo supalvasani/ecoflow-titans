@@ -11,7 +11,6 @@ import {
     approveECO,
     rejectECO,
     applyECO,
-    advanceStage,
 } from '../controllers/ecoController.js';
 import { authenticate, requireEngineerOrAdmin, requireApprover } from '../middlewares/authMiddleware.js';
 
@@ -32,7 +31,6 @@ router.post('/:id/draft/attachments', authenticate, requireEngineerOrAdmin(), ad
 
 // Workflow Transitions
 router.post('/:id/submit', authenticate, requireEngineerOrAdmin(), submitForReview);
-router.post('/:id/advance', authenticate, requireEngineerOrAdmin(), advanceStage);
 router.post('/:id/approve', authenticate, requireApprover(), approveECO);
 router.post('/:id/reject', authenticate, requireApprover(), rejectECO);
 router.post('/:id/apply', authenticate, requireEngineerOrAdmin(), applyECO);

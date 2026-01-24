@@ -357,16 +357,6 @@ async function main() {
             stageId: stages[1].id, // Under Review
             productVersionId: phoneV2.id,
             versionUpdate: true,
-            proposedState: {
-                changes: [
-                    {
-                        field: 'battery',
-                        oldValue: '5000mAh',
-                        newValue: '5500mAh',
-                    },
-                ],
-                reason: 'Customer feedback requesting longer battery life',
-            },
         },
     });
 
@@ -378,16 +368,6 @@ async function main() {
             stageId: stages[0].id, // Draft
             bomVersionId: bomV2.id,
             versionUpdate: true,
-            proposedState: {
-                changes: [
-                    {
-                        component: 'Camera Module',
-                        oldSpec: '48MP',
-                        newSpec: '64MP',
-                    },
-                ],
-                reason: 'Market competition requires higher resolution',
-            },
         },
     });
 

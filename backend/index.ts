@@ -7,6 +7,8 @@ import authRoutes from './src/routes/authRoutes.js';
 import productRoutes from './src/routes/productRoutes.js';
 import bomRoutes from './src/routes/bomRoutes.js';
 import ecoRoutes from './src/routes/ecoRoutes.js';
+import reportRoutes from './src/routes/reportRoutes.js';
+import settingsRoutes from './src/routes/settingsRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
 import { db } from './src/libs/prisma.js';
 
@@ -31,6 +33,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/boms', bomRoutes);
 app.use('/api/ecos', ecoRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Simple Connection Test Route
 app.get('/test-db', async (req: express.Request, res: express.Response) => {
