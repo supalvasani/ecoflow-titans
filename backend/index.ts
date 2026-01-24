@@ -1,5 +1,7 @@
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
@@ -12,8 +14,6 @@ import settingsRoutes from './src/routes/settingsRoutes.js';
 import auditRoutes from './src/routes/auditRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
 import { db } from './src/libs/prisma.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

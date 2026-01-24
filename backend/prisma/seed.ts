@@ -299,15 +299,18 @@ async function main() {
     // ===========================
     console.log('🔧 Creating BOMs...');
 
-    const smartphoneBOM = await db.bOM.create({
-        data: { productId: smartphoneProduct.id },
-    });
+    const smartphoneBOM = await db.bOM.create({ data: { productId: smartphoneProduct.id } });
+    const legacyBOM = await db.bOM.create({ data: { productId: legacyProduct.id } });
 
-    const legacyBOM = await db.bOM.create({
-        data: { productId: legacyProduct.id },
-    });
+    // Create empty BOMs for components to allow BOM-level ECOs
+    const batteryBOM = await db.bOM.create({ data: { productId: batteryProduct.id } });
+    const screenBOM = await db.bOM.create({ data: { productId: screenProduct.id } });
+    const camera48BOM = await db.bOM.create({ data: { productId: camera48Product.id } });
+    const camera64BOM = await db.bOM.create({ data: { productId: camera64Product.id } });
+    const processorBOM = await db.bOM.create({ data: { productId: processorProduct.id } });
+    const cableBOM = await db.bOM.create({ data: { productId: cableProduct.id } });
 
-    console.log(`✅ Created 2 BOMs\n`);
+    console.log(`✅ Created 8 BOMs\n`);
 
     // ===========================
     // 7. Create BOM Versions
@@ -344,7 +347,17 @@ async function main() {
         },
     });
 
-    console.log(`✅ Created 3 BOM versions\n`);
+    // Create initial v1 for all other BOMs (active)
+    await Promise.all([
+        db.bOMVersion.create({ data: { bomId: batteryBOM.id, productVersionId: batteryV1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+        db.bOMVersion.create({ data: { bomId: screenBOM.id, productVersionId: screenV1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+        db.bOMVersion.create({ data: { bomId: camera48BOM.id, productVersionId: camera48V1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+        db.bOMVersion.create({ data: { bomId: camera64BOM.id, productVersionId: camera64V1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+        db.bOMVersion.create({ data: { bomId: processorBOM.id, productVersionId: processorV1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+        db.bOMVersion.create({ data: { bomId: cableBOM.id, productVersionId: cableV1.id, version: 1, status: ItemStatus.ACTIVE, isCurrent: true } }),
+    ]);
+
+    console.log(`✅ Created 9 BOM versions\n`);
 
     // ===========================
     // 8. Create BOM Components
