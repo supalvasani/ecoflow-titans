@@ -7,78 +7,84 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Base Neutrals - Soft pastel blue tones
-        background: '#F0F4F8',
+        // Base - Soft pastel blue theme
+        background: '#F5F8FC',
         surface: '#FFFFFF',
-        sidebar: '#E8EDF3',
-        border: '#D1DAE5',
-        divider: '#E0E7EF',
+        sidebar: '#EDF2F9',
+        border: '#D6E2F0',
+        divider: '#E5ECF6',
 
-        // Text
+        // Text - Darker colors
         text: {
-          primary: '#1E3A5F',
-          secondary: '#4A6B8A',
-          muted: '#7A92AB',
+          primary: '#0F172A',
+          secondary: '#334155',
+          muted: '#64748B',
         },
 
         // Primary Brand (Pastel Blue)
         primary: {
-          DEFAULT: '#5B8DBE',
+          DEFAULT: '#6B9FD4',
           foreground: '#FFFFFF',
-          hover: '#4A7BA8',
-          soft: '#E3EEF7',
+          hover: '#5A8EC3',
+          soft: '#E8F2FC',
         },
 
-        // Accent for secondary interactive elements
+        // Accent
         accent: {
-          DEFAULT: '#E8EDF3',
-          foreground: '#1E3A5F',
+          DEFAULT: '#EDF2F9',
+          foreground: '#1E3D5C',
         },
 
         // Semantic Colors - Pastel versions
         success: {
-          DEFAULT: '#6BB896',
-          strong: '#5AA885',
-          soft: '#E8F5EE',
+          DEFAULT: '#7BC4A1',
+          strong: '#6AB390',
+          soft: '#EDF8F3',
         },
         warning: {
-          DEFAULT: '#E8B563',
-          strong: '#D9A552',
-          soft: '#FDF4E5',
+          DEFAULT: '#F0C079',
+          strong: '#E0B068',
+          soft: '#FEF7EC',
         },
         error: {
-          DEFAULT: '#D97B7B',
-          strong: '#C96A6A',
-          soft: '#FDEAEA',
+          DEFAULT: '#E88B8B',
+          strong: '#D77A7A',
+          soft: '#FEEEED',
         },
         destructive: {
-          DEFAULT: '#D97B7B',
+          DEFAULT: '#E88B8B',
           foreground: '#FFFFFF',
         },
         archived: {
-          strong: '#8A9BAD',
-          soft: '#E8EDF3',
+          strong: '#8FA5BD',
+          soft: '#EDF2F9',
         },
 
         // Additional UI tokens
-        input: '#D1DAE5',
-        ring: '#5B8DBE',
+        input: '#D6E2F0',
+        ring: '#6B9FD4',
         muted: {
-          DEFAULT: '#E8EDF3',
-          foreground: '#4A6B8A',
+          DEFAULT: '#EDF2F9',
+          foreground: '#4E6E8C',
         },
         card: {
           DEFAULT: '#FFFFFF',
-          foreground: '#1E3A5F',
+          foreground: '#0F172A',
         },
-        foreground: '#1E3A5F',
+        foreground: '#0F172A',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       borderRadius: {
-        DEFAULT: '6px',
+        DEFAULT: '8px',
+        sm: '6px',
+        lg: '12px',
+      },
+      boxShadow: {
+        'soft': '0 2px 8px rgba(107, 159, 212, 0.08)',
+        'soft-lg': '0 4px 16px rgba(107, 159, 212, 0.12)',
       },
     },
   },
