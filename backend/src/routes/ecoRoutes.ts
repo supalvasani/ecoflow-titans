@@ -11,6 +11,10 @@ import {
     approveECO,
     rejectECO,
     applyECO,
+<<<<<<< Updated upstream
+=======
+    getECOStatistics,
+>>>>>>> Stashed changes
 } from '../controllers/ecoController.js';
 import { authenticate, requireEngineerOrAdmin, requireApprover } from '../middlewares/authMiddleware.js';
 
@@ -22,6 +26,7 @@ router.post('/bom', authenticate, requireEngineerOrAdmin(), createBOMECO);
 
 // ECO Listing & Details
 router.get('/', authenticate, getECOs);
+router.get('/statistics', authenticate, getECOStatistics);
 router.get('/:id', authenticate, getECOById);
 
 // Draft Editing (only in NEW stage)
