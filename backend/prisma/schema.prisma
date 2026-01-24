@@ -56,8 +56,9 @@ model Product {
   name      String
   createdAt DateTime @default(now())
 
-  versions ProductVersion[]
-  boms     BOM[]
+  versions  ProductVersion[]
+  boms      BOM[]
+  ecoDrafts ECOProductDraft[]
 }
 
 // =======================
@@ -80,6 +81,7 @@ model ProductVersion {
 
   // ✅ Inverse relation required by Prisma
   componentsUsedIn BOMComponent[]
+  draftComponents  ECODraftComponent[]
 }
 
 // =======================
@@ -105,8 +107,9 @@ model BOM {
   productId String
   createdAt DateTime @default(now())
 
-  product  Product      @relation(fields: [productId], references: [id])
-  versions BOMVersion[]
+  product   Product         @relation(fields: [productId], references: [id])
+  versions  BOMVersion[]
+  ecoDrafts ECOBOMDraft[]
 }
 
 // =======================
@@ -173,14 +176,88 @@ model ECO {
   productVersionId String?
   bomVersionId     String?
 
-  proposedState Json
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   createdBy User       @relation(fields: [createdById], references: [id])
   stage     ECOStage   @relation(fields: [stageId], references: [id])
   logs      AuditLog[]
+  
+  // Draft data relations
+  productDraft     ECOProductDraft?
+  bomDraft         ECOBOMDraft?
+  draftAttachments ECODraftAttachment[]
+}
+
+// =======================
+// ECO Draft Tables
+// =======================
+
+// Draft Product Changes
+model ECOProductDraft {
+  id        String   @id @default(uuid())
+  ecoId     String   @unique
+  productId String
+  
+  // Proposed changes (nullable = no change proposed)
+  name      String?
+  salePrice Decimal? @db.Decimal(10, 2)
+  costPrice Decimal? @db.Decimal(10, 2)
+  
+  eco     ECO     @relation(fields: [ecoId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// Draft BOM Changes
+model ECOBOMDraft {
+  id    String @id @default(uuid())
+  ecoId String @unique
+  bomId String
+  
+  // Proposed changes (if any metadata changes needed)
+  notes String?
+  
+  eco ECO @relation(fields: [ecoId], references: [id], onDelete: Cascade)
+  bom BOM @relation(fields: [bomId], references: [id])
+  
+  draftComponents ECODraftComponent[]
+  draftOperations ECODraftOperation[]
+}
+
+// Draft Attachments
+model ECODraftAttachment {
+  id               String @id @default(uuid())
+  ecoId            String
+  productVersionId String?
+  filename         String
+  url              String
+  action           String // "ADD" or "DELETE"
+  
+  eco ECO @relation(fields: [ecoId], references: [id], onDelete: Cascade)
+}
+
+// Draft Components
+model ECODraftComponent {
+  id                 String @id @default(uuid())
+  bomDraftId         String
+  componentVersionId String
+  quantity           Int
+  action             String // "ADD", "UPDATE", "DELETE"
+  
+  bomDraft         ECOBOMDraft    @relation(fields: [bomDraftId], references: [id], onDelete: Cascade)
+  componentVersion ProductVersion @relation(fields: [componentVersionId], references: [id])
+}
+
+// Draft Operations
+model ECODraftOperation {
+  id          String @id @default(uuid())
+  bomDraftId  String
+  name        String
+  timeMinutes Int
+  workCenter  String
+  action      String // "ADD", "UPDATE", "DELETE"
+  
+  bomDraft ECOBOMDraft @relation(fields: [bomDraftId], references: [id], onDelete: Cascade)
 }
 
 // =======================

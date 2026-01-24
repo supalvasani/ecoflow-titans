@@ -4,6 +4,9 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './src/routes/authRoutes.js';
+import productRoutes from './src/routes/productRoutes.js';
+import bomRoutes from './src/routes/bomRoutes.js';
+import ecoRoutes from './src/routes/ecoRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
 import { db } from './src/libs/prisma.js';
 
@@ -25,6 +28,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/boms', bomRoutes);
+app.use('/api/ecos', ecoRoutes);
 
 // Simple Connection Test Route
 app.get('/test-db', async (req: express.Request, res: express.Response) => {

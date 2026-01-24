@@ -20,3 +20,38 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     res.status(401).json({ error: "Invalid token" });
   }
 };
+
+/**
+ * Role-based authorization middleware
+ * Checks if authenticated user has one of the required roles
+ */
+export const requireRole = (...roles: string[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: `This action requires one of the following roles: ${roles.join(', ')}`
+      });
+    }
+
+    next();
+  };
+};
+
+/**
+ * Shorthand: Require ENGINEERING_USER or ADMIN role
+ */
+export const requireEngineerOrAdmin = () => {
+  return requireRole('ENGINEERING_USER', 'ADMIN');
+};
+
+/**
+ * Shorthand: Require APPROVER or ADMIN role
+ */
+export const requireApprover = () => {
+  return requireRole('APPROVER', 'ADMIN');
+};
