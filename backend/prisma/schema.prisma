@@ -1,0 +1,217 @@
+// =======================
+// Prisma Generator & DB
+// =======================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =======================
+// Enums
+// =======================
+
+enum Role {
+  ENGINEERING_USER
+  APPROVER
+  OPERATIONS_USER
+  ADMIN
+}
+
+enum ItemStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ECOType {
+  PRODUCT
+  BOM
+}
+
+// =======================
+// Users & Auth
+// =======================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role
+  createdAt DateTime @default(now())
+
+  ecos ECO[]
+  logs AuditLog[]
+}
+
+// =======================
+// Product Identity
+// =======================
+
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  versions ProductVersion[]
+  boms     BOM[]
+}
+
+// =======================
+// Product Version (Operational Truth)
+// =======================
+
+model ProductVersion {
+  id        String     @id @default(uuid())
+  productId String
+  version   Int
+  salePrice Decimal    @db.Decimal(10, 2)
+  costPrice Decimal    @db.Decimal(10, 2)
+  status    ItemStatus
+  isCurrent Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  product     Product             @relation(fields: [productId], references: [id])
+  attachments ProductAttachment[]
+  bomVersions BOMVersion[]
+
+  // ✅ Inverse relation required by Prisma
+  componentsUsedIn BOMComponent[]
+}
+
+// =======================
+// Product Attachments
+// =======================
+
+model ProductAttachment {
+  id               String   @id @default(uuid())
+  productVersionId String
+  filename         String
+  url              String
+  createdAt        DateTime @default(now())
+
+  productVersion ProductVersion @relation(fields: [productVersionId], references: [id])
+}
+
+// =======================
+// BOM Identity
+// =======================
+
+model BOM {
+  id        String   @id @default(uuid())
+  productId String
+  createdAt DateTime @default(now())
+
+  product  Product      @relation(fields: [productId], references: [id])
+  versions BOMVersion[]
+}
+
+// =======================
+// BOM Version
+// =======================
+
+model BOMVersion {
+  id               String     @id @default(uuid())
+  bomId            String
+  productVersionId String
+  version          Int
+  status           ItemStatus
+  isCurrent        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+
+  bom            BOM            @relation(fields: [bomId], references: [id])
+  productVersion ProductVersion @relation(fields: [productVersionId], references: [id])
+  components     BOMComponent[]
+  operations     BOMOperation[]
+}
+
+// =======================
+// BOM Components (Version-Locked)
+// =======================
+
+model BOMComponent {
+  id                 String @id @default(uuid())
+  bomVersionId       String
+  componentVersionId String
+  quantity           Int
+
+  bomVersion       BOMVersion     @relation(fields: [bomVersionId], references: [id])
+  componentVersion ProductVersion @relation(fields: [componentVersionId], references: [id])
+}
+
+// =======================
+// BOM Operations
+// =======================
+
+model BOMOperation {
+  id           String @id @default(uuid())
+  bomVersionId String
+  name         String
+  timeMinutes  Int
+  workCenter   String
+
+  bomVersion BOMVersion @relation(fields: [bomVersionId], references: [id])
+}
+
+// =======================
+// ECO Core
+// =======================
+
+model ECO {
+  id            String    @id @default(uuid())
+  title         String
+  type          ECOType
+  createdById   String
+  stageId       String
+  effectiveDate DateTime?
+  versionUpdate Boolean   @default(true)
+
+  // ECO targets versions only
+  productVersionId String?
+  bomVersionId     String?
+
+  proposedState Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User       @relation(fields: [createdById], references: [id])
+  stage     ECOStage   @relation(fields: [stageId], references: [id])
+  logs      AuditLog[]
+}
+
+// =======================
+// ECO Workflow
+// =======================
+
+model ECOStage {
+  id               String  @id @default(uuid())
+  name             String
+  sequence         Int
+  requiresApproval Boolean @default(false)
+  isFinal          Boolean @default(false)
+
+  ecos ECO[]
+}
+
+// =======================
+// Audit & Traceability
+// =======================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  ecoId     String?
+  entity    String
+  entityId  String
+  userId    String
+  action    String
+  oldValue  String?
+  newValue  String?
+  timestamp DateTime @default(now())
+
+  eco  ECO? @relation(fields: [ecoId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
