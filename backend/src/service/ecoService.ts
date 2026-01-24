@@ -700,45 +700,58 @@ export class ECOService {
      * Get all ECOs (filtered by user role)
      */
     async getECOs(userRole: string, filters?: { type?: ECOType; stageId?: string }) {
+        console.log('[DEBUG] Service getECOs - Start');
+
         // Operations users cannot see ECOs
         if (!canViewECOs(userRole)) {
+            console.log('[DEBUG] Service getECOs - Access Denied for Ops');
             return [];
         }
 
-        const ecos = await db.eCO.findMany({
-            where: {
+        try {
+            console.log('[DEBUG] Service getECOs - Building Query');
+            const whereClause = {
                 ...(filters?.type && { type: filters.type }),
                 ...(filters?.stageId && { stageId: filters.stageId }),
-            },
-            include: {
-                stage: true,
-                createdBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
+            };
+            console.log('[DEBUG] Service getECOs - Where Clause:', whereClause);
+
+            const ecos = await db.eCO.findMany({
+                where: whereClause,
+                include: {
+                    stage: true,
+                    createdBy: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                        },
                     },
-                },
-                productDraft: true,
-                bomDraft: {
-                    include: {
-                        draftComponents: {
-                            include: {
-                                componentVersion: {
-                                    include: {
-                                        product: true,
+                    productDraft: true,
+                    bomDraft: {
+                        include: {
+                            draftComponents: {
+                                include: {
+                                    componentVersion: {
+                                        include: {
+                                            product: true,
+                                        },
                                     },
                                 },
                             },
+                            draftOperations: true,
                         },
-                        draftOperations: true,
                     },
                 },
-            },
-            orderBy: { createdAt: 'desc' },
-        }) as any;
+                orderBy: { createdAt: 'desc' },
+            }) as any;
 
-        return ecos;
+            console.log(`[DEBUG] Service getECOs - Found ${ecos.length} records`);
+            return ecos;
+        } catch (e: any) {
+            console.error('[DEBUG] Service getECOs - DB Error:', e);
+            throw e;
+        }
     }
 
     /**

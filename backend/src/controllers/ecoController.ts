@@ -110,17 +110,28 @@ export const createBOMECO = async (req: AuthRequest, res: Response) => {
  *         description: List of ECOs
  */
 export const getECOs = async (req: AuthRequest, res: Response) => {
+    console.log('[DEBUG] getECOs - Request received');
     try {
         const userRole = req.user!.role;
-        const filters = {
-            type: req.query.type as ECOType | undefined,
-            stageId: req.query.stageId as string | undefined,
-        };
+        console.log('[DEBUG] getECOs - User Role:', userRole);
 
+        const filters: { type?: ECOType; stageId?: string } = {};
+        if (req.query.type) {
+            filters.type = req.query.type as ECOType;
+        }
+        if (req.query.stageId) {
+            filters.stageId = req.query.stageId as string;
+        }
+        console.log('[DEBUG] getECOs - Filters:', filters);
+
+        console.log('[DEBUG] getECOs - Calling service...');
         const ecos = await ecoService.getECOs(userRole, filters);
+        console.log(`[DEBUG] getECOs - Service returned ${ecos.length} ECOs`);
+
         res.json({ ecos });
     } catch (error: any) {
-        console.error('Get ECOs error:', error);
+        console.error('[DEBUG] Get ECOs error - Full Error:', error);
+        console.error('[DEBUG] Get ECOs error - Stack:', error.stack);
         res.status(500).json({ error: 'Failed to fetch ECOs' });
     }
 };

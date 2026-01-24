@@ -7,6 +7,11 @@ import { EngineeringDashboard } from './pages/EngineeringDashboard';
 import { ApproverDashboard } from './pages/ApproverDashboard';
 import { OperationsDashboard } from './pages/OperationsDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
+import ProductListPage from './pages/products/ProductListPage';
+import ProductDetailPage from './pages/products/ProductDetailPage';
+import ECOListPage from './pages/ecos/ECOListPage';
+import ECODetailPage from './pages/ecos/ECODetailPage';
+import BOMPage from './pages/boms/BOMPage';
 import { Role } from './types/auth';
 
 function App() {
@@ -57,6 +62,51 @@ function App() {
             }
           />
 
+          {/* Product Routes - Accessible to all authenticated users */}
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <ProtectedRoute>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ECO Routes */}
+          <Route
+            path="/ecos"
+            element={
+              <ProtectedRoute>
+                <ECOListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ecos/:id"
+            element={
+              <ProtectedRoute>
+                <ECODetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* BOM Routes */}
+          <Route
+            path="/boms"
+            element={
+              <ProtectedRoute>
+                <BOMPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
