@@ -72,6 +72,55 @@ export async function cloneProductVersion(
 }
 
 /**
+ * Update the CURRENT product version in-place (no version increment)
+ */
+export async function updateCurrentProductVersion(
+    activeVersion: any,
+    draft: any,
+    draftAttachments: any[]
+) {
+    // Update active version directly
+    const updatedVersion = await db.productVersion.update({
+        where: { id: activeVersion.id },
+        data: {
+            salePrice: draft?.salePrice ?? activeVersion.salePrice,
+            costPrice: draft?.costPrice ?? activeVersion.costPrice,
+        },
+    });
+
+    // Handle attachments (Add/Delete)
+    // First, handle deletions
+    const attachmentsToDelete = draftAttachments.filter(d => d.action === 'DELETE');
+    for (const att of attachmentsToDelete) {
+        // Find attachment by filename for this version
+        const toDelete = await db.productAttachment.findFirst({
+            where: {
+                productVersionId: activeVersion.id,
+                filename: att.filename,
+            },
+        });
+
+        if (toDelete) {
+            await db.productAttachment.delete({ where: { id: toDelete.id } });
+        }
+    }
+
+    // Handle additions
+    const attachmentsToAdd = draftAttachments.filter(d => d.action === 'ADD');
+    for (const att of attachmentsToAdd) {
+        await db.productAttachment.create({
+            data: {
+                productVersionId: activeVersion.id,
+                filename: att.filename,
+                url: att.url,
+            },
+        });
+    }
+
+    return updatedVersion;
+}
+
+/**
  * Clone a BOM version with draft changes applied
  * This creates a new version, applies component/operation changes, and archives the old version
  */
@@ -191,4 +240,77 @@ export async function cloneBOMVersion(
     });
 
     return newVersion;
+}
+
+/**
+ * Update the CURRENT BOM version in-place (no version increment)
+ */
+export async function updateCurrentBOMVersion(
+    activeVersion: any,
+    draft: any,
+    draftComponents: any[],
+    draftOperations: any[]
+) {
+    // 1. Handle Components
+    for (const draftComp of draftComponents) {
+        if (draftComp.action === 'DELETE') {
+            await db.bOMComponent.deleteMany({
+                where: {
+                    bomVersionId: activeVersion.id,
+                    componentVersionId: draftComp.componentVersionId,
+                },
+            });
+        } else if (draftComp.action === 'UPDATE') {
+            await db.bOMComponent.updateMany({
+                where: {
+                    bomVersionId: activeVersion.id,
+                    componentVersionId: draftComp.componentVersionId,
+                },
+                data: { quantity: draftComp.quantity },
+            });
+        } else if (draftComp.action === 'ADD') {
+            await db.bOMComponent.create({
+                data: {
+                    bomVersionId: activeVersion.id,
+                    componentVersionId: draftComp.componentVersionId,
+                    quantity: draftComp.quantity,
+                },
+            });
+        }
+    }
+
+    // 2. Handle Operations
+    // Note: Operations are tricky because they don't have stable IDs in the draft, usually matched by name
+    for (const draftOp of draftOperations) {
+        if (draftOp.action === 'DELETE') {
+            await db.bOMOperation.deleteMany({
+                where: {
+                    bomVersionId: activeVersion.id,
+                    name: draftOp.name,
+                },
+            });
+        } else if (draftOp.action === 'UPDATE') {
+            await db.bOMOperation.updateMany({
+                where: {
+                    bomVersionId: activeVersion.id,
+                    name: draftOp.name,
+                },
+                data: {
+                    timeMinutes: draftOp.timeMinutes,
+                    workCenter: draftOp.workCenter,
+                },
+            });
+        } else if (draftOp.action === 'ADD') {
+            await db.bOMOperation.create({
+                data: {
+                    bomVersionId: activeVersion.id,
+                    name: draftOp.name,
+                    timeMinutes: draftOp.timeMinutes,
+                    workCenter: draftOp.workCenter,
+                },
+            });
+        }
+    }
+
+    return activeVersion;
 }

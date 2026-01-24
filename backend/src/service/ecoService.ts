@@ -1,8 +1,8 @@
 import { db } from '../libs/prisma.js';
 import { ItemStatus, ECOType } from '@prisma/client';
-import { ECO_STAGES, canTransition, isEditableStage } from '../libs/ecoStages.js';
 import { validateECOEdit, validateApproval, validateApply, validateActiveVersion, validateComponentIsActive, canViewECOs } from '../libs/ecoValidation.js';
-import { cloneProductVersion, cloneBOMVersion } from '../libs/versionCloner.js';
+import { cloneProductVersion, cloneBOMVersion, updateCurrentProductVersion, updateCurrentBOMVersion } from '../libs/versionCloner.js';
+import { stageService } from './stageService.js';
 
 export class ECOService {
     /**
@@ -36,14 +36,8 @@ export class ECOService {
         // Validate version is ACTIVE
         await validateActiveVersion(activeVersion.id, 'product');
 
-        // Get NEW stage
-        const newStage = await db.eCOStage.findFirst({
-            where: { name: 'Draft' },
-        });
-
-        if (!newStage) {
-            throw new Error('ECO stage "Draft" not found. Please run seed script.');
-        }
+        // Get Initial stage (Dynamic)
+        const newStage = await stageService.getInitialStage();
 
         // Create ECO with product draft
         const eco = await db.eCO.create({
@@ -125,14 +119,8 @@ export class ECOService {
             throw new Error('Cannot modify BOM. Linked product version is archived.');
         }
 
-        // Get NEW stage
-        const newStage = await db.eCOStage.findFirst({
-            where: { name: 'Draft' },
-        });
-
-        if (!newStage) {
-            throw new Error('ECO stage "Draft" not found. Please run seed script.');
-        }
+        // Get Initial stage (Dynamic)
+        const newStage = await stageService.getInitialStage();
 
         // Create ECO with BOM draft
         const eco = await db.eCO.create({
@@ -202,7 +190,7 @@ export class ECOService {
         }
 
         // Validate ECO is editable
-        validateECOEdit(eco.stageId);
+        await validateECOEdit(eco.stageId);
 
         if (!eco.productDraft) {
             throw new Error('Product draft not found');
@@ -266,7 +254,7 @@ export class ECOService {
         }
 
         // Validate ECO is editable
-        validateECOEdit(eco.stageId);
+        await validateECOEdit(eco.stageId);
 
         if (!eco.bomDraft) {
             throw new Error('BOM draft not found');
@@ -361,7 +349,7 @@ export class ECOService {
         }
 
         // Validate ECO is editable
-        validateECOEdit(eco.stageId);
+        await validateECOEdit(eco.stageId);
 
         // Create draft attachment
         const attachment = await (db as any).eCODraftAttachment.create({
@@ -402,24 +390,23 @@ export class ECOService {
             throw new Error('ECO not found');
         }
 
-        // Get REVIEW stage
-        const reviewStage = await db.eCOStage.findFirst({
-            where: { name: 'Under Review' },
-        });
+        // Get Next Stage (Dynamic)
+        const nextStage = await stageService.getNextStage(eco.stageId);
 
-        if (!reviewStage) {
-            throw new Error('Review stage not found');
+        if (!nextStage) {
+            throw new Error('No next stage found. This might be the final stage.');
         }
 
         // Validate transition
-        if (!canTransition(eco.stageId, reviewStage.id)) {
-            throw new Error(`Cannot transition from ${eco.stage.name} to ${reviewStage.name}`);
+        const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
+        if (!isValid) {
+            throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
         }
 
         // Update ECO stage
         const updatedECO = await db.eCO.update({
             where: { id: ecoId },
-            data: { stageId: reviewStage.id },
+            data: { stageId: nextStage.id },
             include: { stage: true },
         });
 
@@ -432,7 +419,63 @@ export class ECOService {
                 userId,
                 action: 'STAGE_TRANSITION',
                 oldValue: eco.stage.name,
-                newValue: reviewStage.name,
+                newValue: nextStage.name,
+            },
+        });
+
+        return updatedECO;
+    }
+
+    /**
+     * Advance ECO to next stage (For stages that DO NOT require approval)
+     * e.g. "Validate" button behavior
+     */
+    async advanceStage(ecoId: string, userId: string) {
+        const eco = await db.eCO.findUnique({
+            where: { id: ecoId },
+            include: { stage: true },
+        }) as any;
+
+        if (!eco) {
+            throw new Error('ECO not found');
+        }
+
+        // Check if current stage REQUIRES approval
+        // If it does, user must use approveECO instead
+        if (eco.stage.requiresApproval) {
+            throw new Error('Current stage requires formal approval. Please use the approve endpoint.');
+        }
+
+        // Get Next Stage (Dynamic)
+        const nextStage = await stageService.getNextStage(eco.stageId);
+
+        if (!nextStage) {
+            throw new Error('No next stage found. This might be the final stage.');
+        }
+
+        // Validate transition
+        const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
+        if (!isValid) {
+            throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
+        }
+
+        // Update ECO stage
+        const updatedECO = await db.eCO.update({
+            where: { id: ecoId },
+            data: { stageId: nextStage.id },
+            include: { stage: true },
+        });
+
+        // Create audit log
+        await db.auditLog.create({
+            data: {
+                entity: 'ECO',
+                entityId: ecoId,
+                ecoId,
+                userId,
+                action: 'STAGE_ADVANCED',
+                oldValue: eco.stage.name,
+                newValue: nextStage.name,
             },
         });
 
@@ -453,26 +496,25 @@ export class ECOService {
         }
 
         // Validate approval
-        validateApproval(eco.stageId, userRole);
+        await validateApproval(eco.stageId, userRole);
 
-        // Get APPROVED stage
-        const approvedStage = await db.eCOStage.findFirst({
-            where: { name: 'Approved' },
-        });
+        // Get Next Stage (Dynamic)
+        const nextStage = await stageService.getNextStage(eco.stageId);
 
-        if (!approvedStage) {
-            throw new Error('Approved stage not found');
+        if (!nextStage) {
+            throw new Error('No next stage found');
         }
 
         // Validate transition
-        if (!canTransition(eco.stageId, approvedStage.id)) {
-            throw new Error(`Cannot transition from ${eco.stage.name} to ${approvedStage.name}`);
+        const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
+        if (!isValid) {
+            throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
         }
 
         // Update ECO stage
         const updatedECO = await db.eCO.update({
             where: { id: ecoId },
-            data: { stageId: approvedStage.id },
+            data: { stageId: nextStage.id },
             include: { stage: true },
         });
 
@@ -485,7 +527,7 @@ export class ECOService {
                 userId: approverId,
                 action: 'ECO_APPROVED',
                 oldValue: eco.stage.name,
-                newValue: approvedStage.name,
+                newValue: nextStage.name,
             },
         });
 
@@ -510,24 +552,19 @@ export class ECOService {
             throw new Error('Only approvers can reject ECOs');
         }
 
-        // Get NEW stage
-        const newStage = await db.eCOStage.findFirst({
-            where: { name: 'Draft' },
-        });
-
-        if (!newStage) {
-            throw new Error('Draft stage not found');
-        }
+        // Get Rejection Target (Dynamic - usually Draft)
+        const targetStage = await stageService.getRejectionTargetStage();
 
         // Validate transition
-        if (!canTransition(eco.stageId, newStage.id)) {
-            throw new Error(`Cannot transition from ${eco.stage.name} to ${newStage.name}`);
+        const isValid = await stageService.validateTransition(eco.stageId, targetStage.id);
+        if (!isValid) {
+            throw new Error(`Cannot transition from ${eco.stage.name} to ${targetStage.name}`);
         }
 
         // Update ECO stage
         const updatedECO = await db.eCO.update({
             where: { id: ecoId },
-            data: { stageId: newStage.id },
+            data: { stageId: targetStage.id },
             include: { stage: true },
         });
 
@@ -540,7 +577,7 @@ export class ECOService {
                 userId: approverId,
                 action: 'ECO_REJECTED',
                 oldValue: eco.stage.name,
-                newValue: `${newStage.name} (Reason: ${reason})`,
+                newValue: `${targetStage.name} (Reason: ${reason})`,
             },
         });
 
@@ -572,15 +609,33 @@ export class ECOService {
         }
 
         // Validate ECO is approved
-        validateApply(eco.stageId);
+        await validateApply(eco.stageId);
 
-        // Get APPLIED stage
-        const appliedStage = await db.eCOStage.findFirst({
-            where: { name: 'Implemented' },
-        });
+        // Validate Effective Date
+        if (eco.effectiveDate && new Date(eco.effectiveDate) > new Date()) {
+            throw new Error(`Cannot apply ECO before effective date: ${eco.effectiveDate.toISOString().split('T')[0]}`);
+        }
 
+        // Get Next Stage (Should be the Final/Applied stage)
+        const nextStage = await stageService.getNextStage(eco.stageId);
+
+        if (!nextStage) {
+            // If manual logic for finding "Implemented" is still needed or if nextStage is null
+            // But usually Apply is called when we are at "Approved" and traversing to "Implemented"
+            // PROVISIONAL: If we use strict sequence, "Approved" -> "Implemented".
+            // Let's assume the applyECO connects the final dot.
+            // OR: applyECO might be triggered *as part of* the transition to final stage?
+            // Users Requirements: "Trigger: The ECO reaches the final stage" -> Automatic Actions.
+            // So actually, when we move to "Implemented", we run this logic.
+            // For now, let's keep the manual "Apply" button as the trigger for the LAST step.
+        }
+
+        // However, the original code looked for "Implemented". 
+        // Let's rely on getNextStage, assuming Implemented is after Approved.
+
+        const appliedStage = nextStage;
         if (!appliedStage) {
-            throw new Error('Implemented stage not found');
+            throw new Error('No next stage found (Implemented stage missing?)');
         }
 
         let newVersion: any;
@@ -595,38 +650,62 @@ export class ECOService {
                 throw new Error('Active product version not found');
             }
 
-            // Clone version with draft changes
-            newVersion = await cloneProductVersion(
-                activeVersion,
-                eco.productDraft,
-                eco.draftAttachments
-            );
+            // Check Version Update Toggle
+            if (eco.versionUpdate) {
+                // TRUE: Create NEW Version (Standard Flow)
+                newVersion = await cloneProductVersion(
+                    activeVersion,
+                    eco.productDraft,
+                    eco.draftAttachments
+                );
 
-            // Log version creation
-            await db.auditLog.create({
-                data: {
-                    entity: 'ProductVersion',
-                    entityId: newVersion.id,
-                    ecoId,
-                    userId,
-                    action: 'VERSION_CREATED',
-                    oldValue: JSON.stringify({ version: activeVersion.version }),
-                    newValue: JSON.stringify({ version: newVersion.version, changes: eco.productDraft }),
-                },
-            });
+                // Log version creation
+                await db.auditLog.create({
+                    data: {
+                        entity: 'ProductVersion',
+                        entityId: newVersion.id,
+                        ecoId,
+                        userId,
+                        action: 'VERSION_CREATED',
+                        oldValue: JSON.stringify({ version: activeVersion.version }),
+                        newValue: JSON.stringify({ version: newVersion.version, changes: eco.productDraft }),
+                    },
+                });
 
-            // Log archival
-            await db.auditLog.create({
-                data: {
-                    entity: 'ProductVersion',
-                    entityId: activeVersion.id,
-                    ecoId,
-                    userId,
-                    action: 'VERSION_ARCHIVED',
-                    oldValue: 'ACTIVE',
-                    newValue: 'ARCHIVED',
-                },
-            });
+                // Log archival
+                await db.auditLog.create({
+                    data: {
+                        entity: 'ProductVersion',
+                        entityId: activeVersion.id,
+                        ecoId,
+                        userId,
+                        action: 'VERSION_ARCHIVED',
+                        oldValue: 'ACTIVE',
+                        newValue: 'ARCHIVED',
+                    },
+                });
+            } else {
+                // FALSE: Update EXISTING Version (Hotfix Flow)
+                // Note: newVersion variable will hold the updated active version
+                newVersion = await updateCurrentProductVersion(
+                    activeVersion,
+                    eco.productDraft,
+                    eco.draftAttachments
+                );
+
+                // Log version update
+                await db.auditLog.create({
+                    data: {
+                        entity: 'ProductVersion',
+                        entityId: activeVersion.id, // ID remains same
+                        ecoId,
+                        userId,
+                        action: 'VERSION_UPDATED', // Distinct action
+                        oldValue: 'Previous State',
+                        newValue: JSON.stringify({ version: activeVersion.version, changes: eco.productDraft }),
+                    },
+                });
+            }
         }
         // Apply BOM ECO
         else if (eco.type === ECOType.BOM && eco.bomVersionId) {
@@ -638,39 +717,63 @@ export class ECOService {
                 throw new Error('Active BOM version not found');
             }
 
-            // Clone version with draft changes
-            newVersion = await cloneBOMVersion(
-                activeVersion,
-                eco.bomDraft,
-                eco.bomDraft?.draftComponents || [],
-                eco.bomDraft?.draftOperations || []
-            );
+            // Check Version Update Toggle
+            if (eco.versionUpdate) {
+                // TRUE: Create NEW Version
+                newVersion = await cloneBOMVersion(
+                    activeVersion,
+                    eco.bomDraft,
+                    eco.bomDraft?.draftComponents || [],
+                    eco.bomDraft?.draftOperations || []
+                );
 
-            // Log version creation
-            await db.auditLog.create({
-                data: {
-                    entity: 'BOMVersion',
-                    entityId: newVersion.id,
-                    ecoId,
-                    userId,
-                    action: 'VERSION_CREATED',
-                    oldValue: JSON.stringify({ version: activeVersion.version }),
-                    newValue: JSON.stringify({ version: newVersion.version }),
-                },
-            });
+                // Log version creation
+                await db.auditLog.create({
+                    data: {
+                        entity: 'BOMVersion',
+                        entityId: newVersion.id,
+                        ecoId,
+                        userId,
+                        action: 'VERSION_CREATED',
+                        oldValue: JSON.stringify({ version: activeVersion.version }),
+                        newValue: JSON.stringify({ version: newVersion.version }),
+                    },
+                });
 
-            // Log archival
-            await db.auditLog.create({
-                data: {
-                    entity: 'BOMVersion',
-                    entityId: activeVersion.id,
-                    ecoId,
-                    userId,
-                    action: 'VERSION_ARCHIVED',
-                    oldValue: 'ACTIVE',
-                    newValue: 'ARCHIVED',
-                },
-            });
+                // Log archival
+                await db.auditLog.create({
+                    data: {
+                        entity: 'BOMVersion',
+                        entityId: activeVersion.id,
+                        ecoId,
+                        userId,
+                        action: 'VERSION_ARCHIVED',
+                        oldValue: 'ACTIVE',
+                        newValue: 'ARCHIVED',
+                    },
+                });
+            } else {
+                // FALSE: Update EXISTING Version
+                newVersion = await updateCurrentBOMVersion(
+                    activeVersion,
+                    eco.bomDraft,
+                    eco.bomDraft?.draftComponents || [],
+                    eco.bomDraft?.draftOperations || []
+                );
+
+                // Log version update
+                await db.auditLog.create({
+                    data: {
+                        entity: 'BOMVersion',
+                        entityId: activeVersion.id,
+                        ecoId,
+                        userId,
+                        action: 'VERSION_UPDATED',
+                        oldValue: 'Previous State',
+                        newValue: JSON.stringify({ version: activeVersion.version }),
+                    },
+                });
+            }
         }
 
         // Mark ECO as APPLIED
