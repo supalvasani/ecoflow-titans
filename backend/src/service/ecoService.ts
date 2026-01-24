@@ -930,6 +930,41 @@ export class ECOService {
 
         return eco;
     }
+
+    /**
+     * Get ECO statistics (count by stage)
+     * Optimized query that doesn't fetch all ECO data
+     */
+    async getECOStatistics(userRole: string) {
+        // Operations users cannot see ECOs
+        if (!canViewECOs(userRole)) {
+            return [];
+        }
+
+        // Use Prisma's groupBy to efficiently count ECOs by stage
+        const stats = await db.eCO.groupBy({
+            by: ['stageId'],
+            _count: {
+                id: true,
+            },
+        });
+
+        // Fetch stage details for each group
+        const statisticsWithStageNames = await Promise.all(
+            stats.map(async (stat) => {
+                const stage = await db.eCOStage.findUnique({
+                    where: { id: stat.stageId },
+                    select: { name: true },
+                });
+                return {
+                    stageName: stage?.name || 'Unknown',
+                    count: stat._count.id,
+                };
+            })
+        );
+
+        return statisticsWithStageNames;
+    }
 }
 
 export const ecoService = new ECOService();

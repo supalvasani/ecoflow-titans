@@ -84,7 +84,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                         {/* Approver Links */}
                         {(user.role === Role.APPROVER || user.role === Role.ADMIN) && (
-                            <NavLink to="/approvals" icon={FileText} label="Pending Approvals" />
+                            <NavLink to="/ecos" icon={FileText} label="Pending Approvals" />
                         )}
 
                         {/* Operations Links */}

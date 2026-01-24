@@ -474,3 +474,27 @@ export const applyECO = async (req: AuthRequest, res: Response) => {
         res.status(400).json({ error: error.message || 'Failed to apply ECO' });
     }
 };
+
+/**
+ * @swagger
+ * /api/ecos/statistics:
+ *   get:
+ *     summary: Get ECO statistics (count by stage)
+ *     tags: [ECOs]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: ECO statistics by stage
+ */
+export const getECOStatistics = async (req: AuthRequest, res: Response) => {
+    try {
+        const userRole = req.user!.role;
+        const statistics = await ecoService.getECOStatistics(userRole);
+        res.json({ statistics });
+    } catch (error: any) {
+        console.error('Get ECO statistics error:', error);
+        res.status(500).json({ error: 'Failed to fetch ECO statistics' });
+    }
+};
+

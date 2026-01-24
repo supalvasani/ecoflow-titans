@@ -121,6 +121,13 @@ class ECOService {
             method: 'POST',
         });
     }
+
+    /**
+     * Get ECO Statistics (count by stage)
+     */
+    async getECOStatistics(token: string): Promise<{ statistics: { stageName: string; count: number }[] }> {
+        return this.request('/api/ecos/statistics', token);
+    }
 }
 
 export const ecoService = new ECOService(API_BASE_URL);

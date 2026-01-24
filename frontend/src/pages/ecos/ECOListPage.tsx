@@ -41,13 +41,11 @@ export default function ECOListPage() {
     }, [token, filterType]);
 
     const getStageBadgeColor = (stageName: string) => {
-        switch (stageName.toUpperCase()) {
-            case 'DRAFT': return 'bg-gray-100 text-gray-800';
-            case 'WIP': return 'bg-blue-100 text-blue-800';
-            case 'REVIEW': return 'bg-yellow-100 text-yellow-800';
-            case 'APPROVED': return 'bg-purple-100 text-purple-800';
-            case 'IMPLEMENTED': return 'bg-green-100 text-green-800';
-            case 'REJECTED': return 'bg-red-100 text-red-800';
+        switch (stageName) {
+            case 'Draft': return 'bg-gray-100 text-gray-800';
+            case 'Under Review': return 'bg-yellow-100 text-yellow-800';
+            case 'Approved': return 'bg-purple-100 text-purple-800';
+            case 'Implemented': return 'bg-green-100 text-green-800';
             default: return 'bg-gray-100 text-gray-800';
         }
     };
@@ -78,17 +76,19 @@ export default function ECOListPage() {
                     <CardHeader>
                         <div className="flex justify-between items-center">
                             <CardTitle>ECO Registry</CardTitle>
-                            <div className="flex items-center space-x-2">
-                                <Filter className="h-4 w-4 text-muted-foreground" />
-                                <select
-                                    className="h-9 w-[150px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    value={filterType}
-                                    onChange={(e) => setFilterType(e.target.value as ECOType | 'ALL')}
-                                >
-                                    <option value="ALL">All Types</option>
-                                    <option value={ECOType.PRODUCT}>Product ECOs</option>
-                                    <option value={ECOType.BOM}>BOM ECOs</option>
-                                </select>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                    <Filter className="h-4 w-4 text-muted-foreground" />
+                                    <select
+                                        className="h-9 w-[150px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value as ECOType | 'ALL')}
+                                    >
+                                        <option value="ALL">All Types</option>
+                                        <option value={ECOType.PRODUCT}>Product ECOs</option>
+                                        <option value={ECOType.BOM}>BOM ECOs</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </CardHeader>

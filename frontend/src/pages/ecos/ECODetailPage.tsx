@@ -23,6 +23,8 @@ export default function ECODetailPage() {
     // Draft Edit State
     const [draftValues, setDraftValues] = useState<{ name: string, salePrice: number, costPrice: number } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [showRejectDialog, setShowRejectDialog] = useState(false);
 
     const fetchECO = async () => {
         if (!token || !id) return;
@@ -66,11 +68,23 @@ export default function ECODetailPage() {
 
     const handleAction = async (action: 'submit' | 'approve' | 'reject' | 'apply') => {
         if (!token || !eco) return;
+
+        // If rejecting, show dialog first
+        if (action === 'reject' && !showRejectDialog) {
+            setShowRejectDialog(true);
+            return;
+        }
+
         try {
             setLoading(true);
             if (action === 'submit') await ecoService.submitForReview(token, eco.id);
             if (action === 'approve') await ecoService.approveECO(token, eco.id);
-            if (action === 'reject') await ecoService.rejectECO(token, eco.id, "Rejected by approver"); // Simple reject for now
+            if (action === 'reject') {
+                const reason = rejectionReason.trim() || "Rejected by approver";
+                await ecoService.rejectECO(token, eco.id, reason);
+                setShowRejectDialog(false);
+                setRejectionReason('');
+            }
             if (action === 'apply') await ecoService.applyECO(token, eco.id);
 
             await fetchECO();
@@ -86,12 +100,13 @@ export default function ECODetailPage() {
     // Computed Permissions
     const stage = eco.stage.name.toUpperCase();
     const isApprover = user?.role === Role.APPROVER || user?.role === Role.ADMIN;
+    const isEngineerOrAdmin = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
     // Actions Logic
     const canEdit = stage === 'DRAFT' || stage === 'WIP'; // Simplified
     const canSubmit = (stage === 'DRAFT' || stage === 'WIP');
-    const canApprove = stage === 'REVIEW' && isApprover;
-    const canApply = stage === 'APPROVED';
+    const canApprove = stage === 'UNDER REVIEW' && isApprover; // Fixed: DB has "Under Review"
+    const canApply = stage === 'APPROVED' && isEngineerOrAdmin; // Only Engineers/Admins can apply
 
     return (
         <DashboardLayout>
@@ -143,6 +158,38 @@ export default function ECODetailPage() {
                         <AlertTriangle className="h-4 w-4 mr-2" />
                         {error}
                     </div>
+                )}
+
+                {/* Rejection Reason Dialog */}
+                {showRejectDialog && (
+                    <Card className="border-red-200 bg-red-50">
+                        <CardHeader>
+                            <CardTitle className="text-red-900">Reject ECO</CardTitle>
+                            <CardDescription>Please provide a reason for rejecting this Engineering Change Order.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <label htmlFor="rejection-reason" className="block text-sm font-medium mb-2">
+                                    Rejection Reason
+                                </label>
+                                <textarea
+                                    id="rejection-reason"
+                                    className="w-full min-h-[100px] rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    placeholder="Explain why this ECO is being rejected (e.g., technical concerns, missing information, cost impact)..."
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex space-x-2 justify-end">
+                                <Button variant="outline" onClick={() => { setShowRejectDialog(false); setRejectionReason(''); }}>
+                                    Cancel
+                                </Button>
+                                <Button variant="destructive" onClick={() => handleAction('reject')} disabled={loading}>
+                                    <XCircle className="mr-2 h-4 w-4" /> Confirm Rejection
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 )}
 
                 {/* Product Draft Editor / Diff View */}
