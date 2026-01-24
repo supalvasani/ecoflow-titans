@@ -2,7 +2,7 @@
 
 An Engineering Change Order (ECO) Management System designed to streamline product lifecycle management, bill of materials (BOM) tracking, and engineering change processes with strict role-based access control and full audit traceability.
 
-## 📋 Project Description
+## Project Description
 
 EcoFlow Titans is a comprehensive web application that manages the entire lifecycle of products and their associated bills of materials (BOMs) through controlled Engineering Change Orders (ECOs). The system ensures data integrity, prevents direct edits to active data, and maintains complete traceability of all changes.
 
@@ -25,7 +25,7 @@ The system follows strict rules to maintain data integrity:
 - Only active versions are usable in operations
 - Draft data is isolated and never affects master data
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Runtime**: Node.js (v18+)
@@ -47,13 +47,13 @@ The system follows strict rules to maintain data integrity:
 - **State Management**: React Context
 - **Routing**: React Router
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js (v18 or higher)
 - PostgreSQL database
 - npm or yarn package manager
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### 1. Clone the Repository
 
@@ -115,7 +115,7 @@ Edit the `.env` file:
 VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
-## 🏃‍♂️ Running the Application
+## Running the Application
 
 ### Development Mode
 
@@ -147,7 +147,7 @@ cd ../backend
 npm run build
 ```
 
-## 🗄️ Database Connection
+## Database Connection
 
 The application uses PostgreSQL as the database. Follow these steps to set up the database connection:
 
@@ -169,7 +169,7 @@ The application uses PostgreSQL as the database. Follow these steps to set up th
 
 The database schema includes tables for users, products, BOMs, ECOs, audit logs, and more.
 
-## 📚 API Testing with Swagger
+## API Testing with Swagger
 
 The backend provides interactive API documentation through Swagger UI.
 
@@ -208,7 +208,7 @@ The backend provides interactive API documentation through Swagger UI.
 For comprehensive testing instructions, including cURL examples, Postman setup, and testing different user roles, refer to:
 - [Backend Testing Guide](./backend/TESTING_GUIDE.md)
 
-## 🧪 Testing
+## Testing
 
 ### Backend Testing
 
@@ -224,7 +224,7 @@ cd frontend
 npm test
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ecoflow-titans/
@@ -249,7 +249,7 @@ ecoflow-titans/
     └── ECOFLOW_INVARIANTS.md # System rules and constraints
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -257,15 +257,10 @@ ecoflow-titans/
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Team
+## Team
 
-EcoFlow Titans - Hackathon 2024
-
-## 📞 Support
-
-For questions or support, please contact the development team or create an issue in the repository.</content>
-<parameter name="filePath">e:\ecoflow-titans\README.md
+The Titans - Hackathon 2026
