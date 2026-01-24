@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types/auth';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FileText, Settings, LogOut, Users, Activity } from 'lucide-react';
+import { LayoutDashboard, Package, FileText, Settings, LogOut, Users, Activity, BarChart3, History } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface DashboardLayoutProps {
@@ -94,6 +94,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 <NavLink to="/inventory" icon={Package} label="Inventory" />
                             </>
                         )}
+
+                        {/* Reports & Audit - Available to all */}
+                        <div className="pt-4 pb-2">
+                            <div className="h-px bg-border mx-3" />
+                        </div>
+                        <NavLink to="/reports" icon={BarChart3} label="Reports" />
+                        <NavLink to="/audit" icon={History} label="Audit Logs" />
 
                         {/* Admin Only */}
                         {user.role === Role.ADMIN && (

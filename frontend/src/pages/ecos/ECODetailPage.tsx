@@ -9,8 +9,10 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Send, Play, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Send, Play, Save, CheckCheck } from 'lucide-react';
 import { Role } from '../../types/auth';
+import { AuditLogViewer } from '../../components/audit/AuditLogViewer';
+import { ProductChangesSummary } from '../../components/eco/ChangeComparison';
 
 export default function ECODetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -66,7 +68,7 @@ export default function ECODetailPage() {
         }
     };
 
-    const handleAction = async (action: 'submit' | 'approve' | 'reject' | 'apply') => {
+    const handleAction = async (action: 'submit' | 'approve' | 'reject' | 'apply' | 'validate') => {
         if (!token || !eco) return;
 
         // If rejecting, show dialog first
@@ -85,6 +87,7 @@ export default function ECODetailPage() {
                 setShowRejectDialog(false);
                 setRejectionReason('');
             }
+            if (action === 'validate') await ecoService.validateECO(token, eco.id);
             if (action === 'apply') await ecoService.applyECO(token, eco.id);
 
             await fetchECO();
@@ -105,7 +108,12 @@ export default function ECODetailPage() {
     // Actions Logic
     const canEdit = stage === 'DRAFT' || stage === 'WIP'; // Simplified
     const canSubmit = (stage === 'DRAFT' || stage === 'WIP');
-    const canApprove = stage === 'UNDER REVIEW' && isApprover; // Fixed: DB has "Under Review"
+
+    // Validate vs Approve logic based on stage.requiresApproval
+    const requiresApproval = eco.stage.requiresApproval;
+    const canValidate = !requiresApproval && !eco.stage.isFinal && isEngineerOrAdmin;
+    const canApprove = requiresApproval && isApprover;
+
     const canApply = stage === 'APPROVED' && isEngineerOrAdmin; // Only Engineers/Admins can apply
 
     return (
@@ -120,6 +128,11 @@ export default function ECODetailPage() {
                         {canSubmit && (
                             <Button onClick={() => handleAction('submit')} disabled={loading}>
                                 <Send className="mr-2 h-4 w-4" /> Submit for Review
+                            </Button>
+                        )}
+                        {canValidate && (
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAction('validate')} disabled={loading}>
+                                <CheckCheck className="mr-2 h-4 w-4" /> Validate
                             </Button>
                         )}
                         {canApprove && (
@@ -267,6 +280,25 @@ export default function ECODetailPage() {
                         </CardContent>
                     </Card>
                 )}
+
+                {/* Change Summary - Visual Diff */}
+                {eco.type === ECOType.PRODUCT && eco.productDraft && draftValues && (
+                    <ProductChangesSummary
+                        currentProduct={{
+                            name: eco.productDraft.product?.name || '',
+                            salePrice: Number(eco.productDraft.product?.versions?.[0]?.salePrice) || 0,
+                            costPrice: Number(eco.productDraft.product?.versions?.[0]?.costPrice) || 0,
+                        }}
+                        proposedChanges={{
+                            name: draftValues.name,
+                            salePrice: draftValues.salePrice,
+                            costPrice: draftValues.costPrice,
+                        }}
+                    />
+                )}
+
+                {/* Audit Log Viewer */}
+                {token && <AuditLogViewer token={token} entity="ECO" entityId={eco.id} />}
             </div>
         </DashboardLayout>
     );

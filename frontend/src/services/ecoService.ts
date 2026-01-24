@@ -30,21 +30,23 @@ class ECOService {
     /**
      * Create Product ECO
      */
-    async createProductECO(token: string, productId: string, title: string): Promise<{ eco: ECO }> {
-        return this.request('/api/ecos/product', token, {
+    async createProductECO(token: string, productId: string, title: string): Promise<string> {
+        const response = await this.request<{ eco: ECO }>('/api/ecos/product', token, {
             method: 'POST',
             body: JSON.stringify({ productId, title }),
         });
+        return response.eco.id;
     }
 
     /**
      * Create BOM ECO
      */
-    async createBOMECO(token: string, bomId: string, title: string): Promise<{ eco: ECO }> {
-        return this.request('/api/ecos/bom', token, {
+    async createBOMECO(token: string, bomId: string, title: string): Promise<string> {
+        const response = await this.request<{ eco: ECO }>('/api/ecos/bom', token, {
             method: 'POST',
             body: JSON.stringify({ bomId, title }),
         });
+        return response.eco.id;
     }
 
     /**
@@ -110,6 +112,15 @@ class ECOService {
         return this.request(`/api/ecos/${ecoId}/reject`, token, {
             method: 'POST',
             body: JSON.stringify({ reason }),
+        });
+    }
+
+    /**
+     * Validate ECO (advance to next stage without approval)
+     */
+    async validateECO(token: string, ecoId: string): Promise<{ eco: ECO }> {
+        return this.request(`/api/ecos/${ecoId}/validate`, token, {
+            method: 'POST',
         });
     }
 

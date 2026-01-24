@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { bomService } from '../../services/bomService';
-import { ecoService } from '../../services/ecoService';
 import type { BOMVersion, BOM } from '../../types/bom';
 import { ItemStatus } from '../../types/product';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
@@ -11,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { AlertCircle, GitBranch, Settings } from 'lucide-react';
 import { Role } from '../../types/auth';
+import { ECOCreationModal } from '../../components/eco/ECOCreationModal';
 
 export default function BOMPage() {
     const { token, user } = useAuth();
@@ -22,6 +22,7 @@ export default function BOMPage() {
     const [activeVersion, setActiveVersion] = useState<BOMVersion | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showECOModal, setShowECOModal] = useState(false);
 
     const canEdit = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
@@ -62,16 +63,8 @@ export default function BOMPage() {
         fetchBOM();
     }, [token, productId]);
 
-    const handleProposeChange = async () => {
-        if (!token || !bom || !activeVersion) return;
-        try {
-            const title = `ECO for BOM ${bom.id.substring(0, 8)} (v${activeVersion.version})`;
-            // Note: createBOMECO takes bomId, not productId. Our bomService.getBOMByProductId returns the BOM object which has ID.
-            const { eco } = await ecoService.createBOMECO(token, bom.id, title);
-            navigate(`/ecos/${eco.id}`);
-        } catch (err: any) {
-            alert(`Failed to create ECO: ${err.message}`);
-        }
+    const handleProposeChange = () => {
+        setShowECOModal(true);
     };
 
     if (error) {
@@ -166,6 +159,14 @@ export default function BOMPage() {
                     </Card>
                 )}
             </div>
+
+            <ECOCreationModal
+                isOpen={showECOModal}
+                onClose={() => setShowECOModal(false)}
+                prefilledProductId={productId || undefined}
+                prefilledBOMId={bom?.id}
+                prefilledType="BOM"
+            />
         </DashboardLayout>
     );
 }

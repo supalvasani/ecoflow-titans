@@ -28,6 +28,13 @@ class BOMService {
     }
 
     /**
+     * Get all BOMs
+     */
+    async getBOMs(token: string, includeArchived: boolean = false): Promise<{ boms: BOM[] }> {
+        return this.request(`/api/boms?includeArchived=${includeArchived}`, token);
+    }
+
+    /**
      * Get BOM by Product ID
      */
     async getBOMByProductId(token: string, productId: string): Promise<{ bom: BOM }> {

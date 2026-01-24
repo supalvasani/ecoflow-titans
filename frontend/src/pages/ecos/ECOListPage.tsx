@@ -8,8 +8,9 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { AlertCircle, Eye, FileText, Filter } from 'lucide-react';
+import { AlertCircle, Eye, FileText, Filter, Package } from 'lucide-react';
 import { Role } from '../../types/auth';
+import { getStageBadgeClass, getTypeBadgeClass } from '../../utils/badgeUtils';
 
 export default function ECOListPage() {
     const { user, token } = useAuth();
@@ -40,15 +41,7 @@ export default function ECOListPage() {
         fetchECOs();
     }, [token, filterType]);
 
-    const getStageBadgeColor = (stageName: string) => {
-        switch (stageName) {
-            case 'Draft': return 'bg-gray-100 text-gray-800';
-            case 'Under Review': return 'bg-yellow-100 text-yellow-800';
-            case 'Approved': return 'bg-purple-100 text-purple-800';
-            case 'Implemented': return 'bg-green-100 text-green-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
+    // Removed - now using utility function
 
     if (user?.role === Role.OPERATIONS_USER) {
         return (
@@ -129,17 +122,17 @@ export default function ECOListPage() {
                                             <TableCell className="font-mono text-xs">{eco.id.substring(0, 8)}...</TableCell>
                                             <TableCell className="font-medium">{eco.title}</TableCell>
                                             <TableCell>
-                                                <span className="inline-flex items-center text-xs font-medium">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${getTypeBadgeClass(eco.type)}`}>
                                                     {eco.type === ECOType.PRODUCT ? (
-                                                        <FileText className="mr-1 h-3 w-3 text-blue-500" />
+                                                        <FileText className="mr-1 h-3 w-3" />
                                                     ) : (
-                                                        <FileText className="mr-1 h-3 w-3 text-orange-500" />
+                                                        <Package className="mr-1 h-3 w-3" />
                                                     )}
                                                     {eco.type}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageBadgeColor(eco.stage.name)}`}>
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStageBadgeClass(eco.stage.name)}`}>
                                                     {eco.stage.name}
                                                 </span>
                                             </TableCell>

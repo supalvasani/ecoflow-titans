@@ -9,9 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 // import { Switch } from '../../components/ui/switch'; // Removed unused import
 import { Label } from '../../components/ui/label';
-import { AlertCircle, Plus, Eye } from 'lucide-react';
+import { AlertCircle, Plus, Eye, FileEdit, Circle, CircleDot } from 'lucide-react';
+import { getStatusBadgeClass } from '../../utils/badgeUtils';
 
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { ECOCreationModal } from '../../components/eco/ECOCreationModal';
 
 export default function ProductListPage() {
     const { user, token } = useAuth();
@@ -20,6 +22,7 @@ export default function ProductListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [includeArchived, setIncludeArchived] = useState(false);
+    const [showECOModal, setShowECOModal] = useState(false);
 
     const isOperations = user?.role === Role.OPERATIONS_USER;
     const canCreate = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
@@ -65,9 +68,14 @@ export default function ProductListPage() {
                         <p className="text-muted-foreground">Manage your product catalog and versions</p>
                     </div>
                     {canCreate && (
-                        <Button onClick={() => navigate('/products/new')}>
-                            <Plus className="mr-2 h-4 w-4" /> Create Product
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => setShowECOModal(true)}>
+                                <FileEdit className="mr-2 h-4 w-4" /> New ECO
+                            </Button>
+                            <Button onClick={() => navigate('/products/new')}>
+                                <Plus className="mr-2 h-4 w-4" /> Create Product
+                            </Button>
+                        </div>
                     )}
                 </div>
 
@@ -123,14 +131,20 @@ export default function ProductListPage() {
                                         const { version, price, status } = getProductDisplayInfo(product);
                                         return (
                                             <TableRow key={product.id}>
-                                                <TableCell className="font-medium">{product.name}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-2">
+                                                        {status === ItemStatus.ACTIVE ? (
+                                                            <CircleDot className="h-3 w-3 text-green-600" />
+                                                        ) : (
+                                                            <Circle className="h-3 w-3 text-gray-400" />
+                                                        )}
+                                                        {product.name}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell>v{version}</TableCell>
                                                 <TableCell>${price}</TableCell>
                                                 <TableCell>
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === ItemStatus.ACTIVE
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                                        }`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeClass(status)}`}>
                                                         {status}
                                                     </span>
                                                 </TableCell>
@@ -148,6 +162,11 @@ export default function ProductListPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <ECOCreationModal
+                isOpen={showECOModal}
+                onClose={() => setShowECOModal(false)}
+            />
         </DashboardLayout>
     );
 }

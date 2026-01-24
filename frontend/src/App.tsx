@@ -12,6 +12,10 @@ import ProductDetailPage from './pages/products/ProductDetailPage';
 import ECOListPage from './pages/ecos/ECOListPage';
 import ECODetailPage from './pages/ecos/ECODetailPage';
 import BOMPage from './pages/boms/BOMPage';
+import BOMDetailPage from './pages/boms/BOMDetailPage';
+import AuditLogPage from './pages/audit/AuditLogPage';
+import ReportsPage from './pages/reports/ReportsPage';
+import SettingsPage from './pages/settings/SettingsPage';
 import { Role } from './types/auth';
 
 function App() {
@@ -104,6 +108,44 @@ function App() {
             element={
               <ProtectedRoute>
                 <BOMPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/boms/:id"
+            element={
+              <ProtectedRoute>
+                <BOMDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Audit Log Routes */}
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute>
+                <AuditLogPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Reports Routes */}
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Settings Routes */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <SettingsPage />
               </ProtectedRoute>
             }
           />

@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { productService } from '../../services/productService';
 import { ItemStatus, type Product, type ProductVersion, type ProductAttachment } from '../../types/product';
 import { Role } from '../../types/auth';
-import { ecoService } from '../../services/ecoService';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -12,6 +11,7 @@ import { Label } from '../../components/ui/label';
 import { ArrowLeft, FileText, History, Box } from 'lucide-react';
 
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { ECOCreationModal } from '../../components/eco/ECOCreationModal';
 
 export default function ProductDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -26,21 +26,13 @@ export default function ProductDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'versions' | 'attachments' | 'bom'>('overview');
+    const [showECOModal, setShowECOModal] = useState(false);
 
     const isOperations = user?.role === Role.OPERATIONS_USER;
     const canEdit = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
-    const handleProposeChange = async () => {
-        if (!token || !product || !activeVersion) return;
-        try {
-            setLoading(true); // Re-use loading state or simple alert
-            const title = `ECO for ${product.name} (v${activeVersion.version})`;
-            const { eco } = await ecoService.createProductECO(token, product.id, title);
-            navigate(`/ecos/${eco.id}`);
-        } catch (err: any) {
-            alert(`Failed to create ECO: ${err.message}`);
-            setLoading(false);
-        }
+    const handleProposeChange = () => {
+        setShowECOModal(true);
     };
 
     useEffect(() => {
@@ -238,10 +230,10 @@ export default function ProductDetailPage() {
                             <CardContent>
                                 <div className="text-center py-10">
                                     <Box className="mx-auto h-12 w-12 text-gray-300" />
-                                    <h3 className="mt-2 text-sm font-semibold text-gray-900">BOM Module Integration</h3>
-                                    <p className="mt-1 text-sm text-gray-500">BOM details will be displayed here.</p>
-                                    <Button className="mt-4" variant="outline" onClick={() => navigate(`/boms?productId=${id}`)}>
-                                        Go to BOM Page
+                                    <h3 className="mt-2 text-sm font-semibold text-gray-900">View BOM Details</h3>
+                                    <p className="mt-1 text-sm text-gray-500">Click below to view the full Bill of Materials for this product.</p>
+                                    <Button className="mt-4" onClick={() => navigate(`/boms/${id}`)}>
+                                        View BOM
                                     </Button>
                                 </div>
                             </CardContent>
@@ -249,6 +241,13 @@ export default function ProductDetailPage() {
                     )}
                 </div>
             </div>
+
+            <ECOCreationModal
+                isOpen={showECOModal}
+                onClose={() => setShowECOModal(false)}
+                prefilledProductId={product.id}
+                prefilledType="PRODUCT"
+            />
         </DashboardLayout>
     );
 }
