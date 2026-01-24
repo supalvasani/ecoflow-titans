@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types/auth';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FileText, Settings, LogOut, Users, Activity, BarChart3, History } from 'lucide-react';
+import { LayoutDashboard, Package, FileText, Settings, LogOut, BarChart3, History } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface DashboardLayoutProps {
@@ -43,7 +43,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             {/* Top Bar */}
-            <header className="bg-card border-b border-border h-16 flex items-center justify-between px-6 sticky top-0 z-10">
+            <header className="bg-card border-b border-border h-16 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
                 <div className="flex items-center gap-2">
                     <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-bold">
                         E
@@ -82,25 +82,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                             </>
                         )}
 
-                        {/* Approver Links */}
-                        {(user.role === Role.APPROVER || user.role === Role.ADMIN) && (
+                        {/* Operations User - BOMs (Read-Only) */}
+                        {user.role === Role.OPERATIONS_USER && (
+                            <NavLink to="/boms" icon={Package} label="BOMs (Active)" />
+                        )}
+
+                        {/* Approver Links - Only show if not admin */}
+                        {user.role === Role.APPROVER && (
                             <NavLink to="/ecos" icon={FileText} label="Pending Approvals" />
                         )}
 
-                        {/* Operations Links */}
-                        {(user.role === Role.OPERATIONS_USER || user.role === Role.ADMIN) && (
+                        {/* Operations Links - Removed production and inventory */}
+                        {/* Operations users now only access BOMs through their dashboard */}
+
+                        {/* Reports & Audit - Available to all except Operations */}
+                        {user.role !== Role.OPERATIONS_USER && (
                             <>
-                                <NavLink to="/production" icon={Activity} label="Production" />
-                                <NavLink to="/inventory" icon={Package} label="Inventory" />
+                                <div className="pt-4 pb-2">
+                                    <div className="h-px bg-border mx-3" />
+                                </div>
+                                <NavLink to="/reports" icon={BarChart3} label="Reports" />
+                                <NavLink to="/audit" icon={History} label="Audit Logs" />
                             </>
                         )}
-
-                        {/* Reports & Audit - Available to all */}
-                        <div className="pt-4 pb-2">
-                            <div className="h-px bg-border mx-3" />
-                        </div>
-                        <NavLink to="/reports" icon={BarChart3} label="Reports" />
-                        <NavLink to="/audit" icon={History} label="Audit Logs" />
 
                         {/* Admin Only */}
                         {user.role === Role.ADMIN && (
@@ -111,7 +115,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-3">
                                     Admin
                                 </div>
-                                <NavLink to="/users" icon={Users} label="Users" />
                                 <NavLink to="/settings" icon={Settings} label="Settings" />
                             </>
                         )}

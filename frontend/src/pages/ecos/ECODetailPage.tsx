@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Send, Play, Save, CheckCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Send, Play, Save } from 'lucide-react';
 import { Role } from '../../types/auth';
 import { AuditLogViewer } from '../../components/audit/AuditLogViewer';
 import { ProductChangesSummary } from '../../components/eco/ChangeComparison';
@@ -105,16 +105,16 @@ export default function ECODetailPage() {
     const isApprover = user?.role === Role.APPROVER || user?.role === Role.ADMIN;
     const isEngineerOrAdmin = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
-    // Actions Logic
-    const canEdit = stage === 'DRAFT' || stage === 'WIP'; // Simplified
-    const canSubmit = (stage === 'DRAFT' || stage === 'WIP');
+    // Actions Logic - Engineers can only Save Draft or Submit for Review
+    const canEdit = (stage === 'DRAFT' || stage === 'WIP') && isEngineerOrAdmin;
+    const canSubmit = (stage === 'DRAFT' || stage === 'WIP') && isEngineerOrAdmin;
 
-    // Validate vs Approve logic based on stage.requiresApproval
+    // Only approvers can approve/reject
     const requiresApproval = eco.stage.requiresApproval;
-    const canValidate = !requiresApproval && !eco.stage.isFinal && isEngineerOrAdmin;
     const canApprove = requiresApproval && isApprover;
 
-    const canApply = stage === 'APPROVED' && isEngineerOrAdmin; // Only Engineers/Admins can apply
+    // Only admins can apply changes (removed engineer ability)
+    const canApply = stage === 'APPROVED' && user?.role === Role.ADMIN;
 
     return (
         <DashboardLayout>
@@ -130,23 +130,18 @@ export default function ECODetailPage() {
                                 <Send className="mr-2 h-4 w-4" /> Submit for Review
                             </Button>
                         )}
-                        {canValidate && (
-                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAction('validate')} disabled={loading}>
-                                <CheckCheck className="mr-2 h-4 w-4" /> Validate
-                            </Button>
-                        )}
                         {canApprove && (
                             <>
                                 <Button variant="destructive" onClick={() => handleAction('reject')} disabled={loading}>
                                     <XCircle className="mr-2 h-4 w-4" /> Reject
                                 </Button>
-                                <Button className="bg-green-600 hover:bg-green-700" onClick={() => handleAction('approve')} disabled={loading}>
+                                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleAction('approve')} disabled={loading}>
                                     <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                 </Button>
                             </>
                         )}
                         {canApply && (
-                            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => handleAction('apply')} disabled={loading}>
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleAction('apply')} disabled={loading}>
                                 <Play className="mr-2 h-4 w-4" /> Apply Changes
                             </Button>
                         )}

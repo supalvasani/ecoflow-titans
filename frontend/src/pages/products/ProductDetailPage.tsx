@@ -232,7 +232,7 @@ export default function ProductDetailPage() {
                                     <Box className="mx-auto h-12 w-12 text-gray-300" />
                                     <h3 className="mt-2 text-sm font-semibold text-gray-900">View BOM Details</h3>
                                     <p className="mt-1 text-sm text-gray-500">Click below to view the full Bill of Materials for this product.</p>
-                                    <Button className="mt-4" onClick={() => navigate(`/boms/${id}`)}>
+                                    <Button className="mt-4" onClick={() => navigate('/boms')}>
                                         View BOM
                                     </Button>
                                 </div>

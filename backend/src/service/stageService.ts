@@ -40,12 +40,19 @@ export class StageService {
     }
 
     /**
-     * Get the previous stage (for rejections)
-     * Usually returns the first editable stage (Draft) or the immediate previous stage
-     * For now, we strictly return to DRAFT (Sequence 1) on rejection as per standard flow
+     * Get the rejection target stage
+     * Returns the "Rejected" stage (terminal state)
      */
     async getRejectionTargetStage(): Promise<ECOStage> {
-        return this.getInitialStage();
+        const rejectedStage = await db.eCOStage.findFirst({
+            where: { name: 'Rejected' },
+        });
+
+        if (!rejectedStage) {
+            throw new Error('Rejected stage not found. Please run seed script.');
+        }
+
+        return rejectedStage;
     }
 
     /**
@@ -60,9 +67,12 @@ export class StageService {
         // Allow moving forward
         if (to.sequence > from.sequence) return true;
 
-        // Allow moving back to Draft (Rejection)
+        // Allow moving back to Draft (for re-editing)
         const initial = await this.getInitialStage();
         if (to.id === initial.id) return true;
+
+        // Allow moving to Rejected stage from any stage
+        if (to.name === 'Rejected') return true;
 
         return false;
     }

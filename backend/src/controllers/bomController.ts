@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { bomService } from '../service/bomService.js';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
+import { db } from '../libs/prisma.js';
 
 /**
  * @swagger
@@ -174,6 +175,59 @@ export const getActiveVersion = async (req: AuthRequest, res: Response) => {
         }
         console.error('Get active BOM version error:', error);
         res.status(500).json({ error: 'Failed to fetch active version' });
+    }
+};
+
+/**
+ * @swagger
+ * /api/boms/versions/{versionId}:
+ *   get:
+ *     summary: Get BOM version by version ID
+ *     tags: [BOMs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: versionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: BOM Version ID
+ *     responses:
+ *       200:
+ *         description: BOM version details with components and operations
+ *       404:
+ *         description: BOM version not found
+ */
+export const getBOMVersionById = async (req: AuthRequest, res: Response) => {
+    try {
+        const { versionId } = req.params;
+
+        const version = await db.bOMVersion.findUnique({
+            where: { id: versionId as string },
+            include: {
+                productVersion: true,
+                components: {
+                    include: {
+                        componentVersion: {
+                            include: {
+                                product: true,
+                            },
+                        },
+                    },
+                },
+                operations: true,
+            },
+        });
+
+        if (!version) {
+            return res.status(404).json({ error: 'BOM version not found' });
+        }
+
+        res.json({ version });
+    } catch (error: any) {
+        console.error('Get BOM version error:', error);
+        res.status(500).json({ error: 'Failed to fetch BOM version' });
     }
 };
 

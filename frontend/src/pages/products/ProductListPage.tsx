@@ -25,7 +25,7 @@ export default function ProductListPage() {
     const [showECOModal, setShowECOModal] = useState(false);
 
     const isOperations = user?.role === Role.OPERATIONS_USER;
-    const canCreate = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
+    const canCreate = user?.role === Role.ADMIN; // Only admins can create products
     const canSeeArchived = !isOperations;
 
     const fetchProducts = async () => {

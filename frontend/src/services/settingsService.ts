@@ -1,8 +1,25 @@
-import type { AuditLog } from '../types/eco';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-class AuditService {
+export interface ECOStage {
+    id: string;
+    name: string;
+    sequence: number;
+    requiresApproval: boolean;
+    isFinal: boolean;
+}
+
+export interface ApprovalRule {
+    role: string;
+    canApprove: boolean;
+    canReject: boolean;
+}
+
+export interface ApprovalRules {
+    rules: ApprovalRule[];
+    requiresApprovalStages: string[];
+}
+
+class SettingsService {
     private baseUrl: string;
 
     constructor(baseUrl: string) {
@@ -33,12 +50,6 @@ class AuditService {
                 // Non-JSON response (likely HTML error page)
                 const text = await response.text();
                 console.error('Non-JSON response received:', text.substring(0, 200));
-
-                // Provide helpful error message for 404
-                if (response.status === 404) {
-                    throw new Error('Audit log API endpoint not found. The backend may not have audit logging implemented yet.');
-                }
-
                 throw new Error(`Server error: Expected JSON but received ${contentType || 'unknown content type'}. Status: ${response.status}`);
             }
         }
@@ -55,41 +66,38 @@ class AuditService {
     }
 
     /**
-     * Get all audit logs with optional filtering
+     * Get all ECO workflow stages
      */
-    async getAuditLogs(
-        token: string,
-        filters?: {
-            entity?: string;
-            entityId?: string;
-            userId?: string;
-            limit?: number;
-            offset?: number;
-        }
-    ): Promise<{ logs: AuditLog[]; total: number }> {
-        const query = new URLSearchParams();
-        if (filters?.entity) query.append('entity', filters.entity);
-        if (filters?.entityId) query.append('entityId', filters.entityId);
-        if (filters?.userId) query.append('userId', filters.userId);
-        if (filters?.limit) query.append('limit', filters.limit.toString());
-        if (filters?.offset) query.append('offset', filters.offset.toString());
-
-        return this.request(`/api/audit?${query.toString()}`, token);
+    async getStages(token: string): Promise<{ stages: ECOStage[] }> {
+        return this.request('/api/settings/stages', token);
     }
 
     /**
-     * Get audit logs for a specific ECO
+     * Update ECO workflow stages (admin only)
      */
-    async getECOAuditLogs(token: string, ecoId: string): Promise<{ logs: AuditLog[] }> {
-        return this.request(`/api/audit?entity=ECO&entityId=${ecoId}`, token);
+    async updateStages(token: string, stages: Partial<ECOStage>[]): Promise<{ message: string; stages: ECOStage[] }> {
+        return this.request('/api/settings/stages', token, {
+            method: 'POST',
+            body: JSON.stringify({ stages }),
+        });
     }
 
     /**
-     * Get audit logs for a specific Product
+     * Get approval rules configuration
      */
-    async getProductAuditLogs(token: string, productId: string): Promise<{ logs: AuditLog[] }> {
-        return this.request(`/api/audit?entity=Product&entityId=${productId}`, token);
+    async getApprovalRules(token: string): Promise<ApprovalRules> {
+        return this.request('/api/settings/approval-rules', token);
+    }
+
+    /**
+     * Update approval rules (admin only)
+     */
+    async updateApprovalRules(token: string, rules: ApprovalRules): Promise<{ message: string; rules: ApprovalRules }> {
+        return this.request('/api/settings/approval-rules', token, {
+            method: 'POST',
+            body: JSON.stringify(rules),
+        });
     }
 }
 
-export const auditService = new AuditService(API_BASE_URL);
+export const settingsService = new SettingsService(API_BASE_URL);

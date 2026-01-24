@@ -1,4 +1,4 @@
-import type { ItemStatus } from './product';
+import type { ItemStatus, Product } from './product';
 import type { ProductVersion } from './product';
 
 export interface BOMOperation {
@@ -32,6 +32,7 @@ export interface BOMVersion {
 export interface BOM {
     id: string;
     productId: string;
+    product?: Product; // Optional - included when fetched with product details
     createdAt: string;
     versions?: BOMVersion[];
 }

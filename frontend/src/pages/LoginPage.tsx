@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getRoleBasedPath } from '../utils/routing';
+import { Button } from '../components/ui/button';
 
 export const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -113,17 +114,13 @@ export const LoginPage = () => {
                         )}
 
                         {/* Submit Button */}
-                        <button
+                        <Button
                             type="submit"
                             disabled={isLoading}
-                            style={{
-                                backgroundColor: '#1F3D3A',
-                                color: 'white'
-                            }}
-                            className="w-full h-10 font-medium text-sm rounded transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full"
                         >
                             {isLoading ? 'Signing in...' : 'Sign In'}
-                        </button>
+                        </Button>
                     </form>
                 </div>
 

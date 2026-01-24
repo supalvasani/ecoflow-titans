@@ -39,9 +39,11 @@ export default function BOMDetailPage() {
         try {
             setLoading(true);
 
-            // Fetch BOM by ID (we need to add this endpoint)
-            // For now, we'll use the product ID approach
-            const { bom: bomData } = await bomService.getBOMByProductId(token, id);
+            console.log('Fetching BOM with ID:', id);
+
+            // Fetch BOM by ID using the service
+            const { bom: bomData } = await bomService.getBOMById(token, id);
+            console.log('BOM data received:', bomData);
             setBOM(bomData);
 
             // Fetch product details
@@ -52,7 +54,7 @@ export default function BOMDetailPage() {
             if (bomData.versions) {
                 setVersions(bomData.versions);
                 // Find active version
-                const activeVersion = bomData.versions.find(v => v.status === ItemStatus.ACTIVE);
+                const activeVersion = bomData.versions.find((v: BOMVersion) => v.status === ItemStatus.ACTIVE);
                 if (activeVersion) {
                     // Fetch full version structure
                     const { version } = await bomService.getBOMStructure(token, activeVersion.id);
@@ -62,6 +64,7 @@ export default function BOMDetailPage() {
 
             setError(null);
         } catch (err: any) {
+            console.error('Error fetching BOM data:', err);
             setError(err.message || 'Failed to load BOM details');
         } finally {
             setLoading(false);
@@ -111,12 +114,14 @@ export default function BOMDetailPage() {
         return (
             <DashboardLayout>
                 <div className="max-w-7xl mx-auto space-y-6">
-                    <Button variant="ghost" onClick={() => navigate('/products')} className="-ml-4">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Products
+                    <Button variant="ghost" onClick={() => navigate('/boms')} className="-ml-4">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to BOMs
                     </Button>
                     <Card className="border-red-200">
                         <CardContent className="py-10 text-center">
-                            <p className="text-red-600">{error || 'BOM not found'}</p>
+                            <p className="text-red-600 font-semibold mb-2">{error || 'BOM not found'}</p>
+                            {!bom && <p className="text-sm text-gray-600">Could not load BOM data</p>}
+                            {bom && !product && <p className="text-sm text-gray-600">Could not load product data</p>}
                         </CardContent>
                     </Card>
                 </div>
@@ -130,8 +135,8 @@ export default function BOMDetailPage() {
                 {/* Header */}
                 <div className="flex justify-between items-start">
                     <div>
-                        <Button variant="ghost" onClick={() => navigate(`/products/${product.id}`)} className="-ml-4 mb-2">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Product
+                        <Button variant="ghost" onClick={() => navigate('/boms')} className="-ml-4 mb-2">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to BOMs
                         </Button>
                         <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
                         <p className="text-muted-foreground mt-1">

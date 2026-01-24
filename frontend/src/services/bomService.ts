@@ -20,8 +20,14 @@ class BOMService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'API request failed');
+            // Try to parse error as JSON, but handle cases where it's not
+            try {
+                const error = await response.json();
+                throw new Error(error.error || `API request failed with status ${response.status}`);
+            } catch (e) {
+                // If response is not JSON, throw a generic error
+                throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+            }
         }
 
         return response.json();
@@ -35,10 +41,27 @@ class BOMService {
     }
 
     /**
+     * Get BOM by ID
+     */
+    async getBOMById(token: string, bomId: string): Promise<{ bom: BOM }> {
+        console.log('getBOMById called with bomId:', bomId);
+        console.log('API endpoint:', `/api/boms/${bomId}`);
+        return this.request(`/api/boms/${bomId}`, token);
+    }
+
+    /**
      * Get BOM by Product ID
      */
     async getBOMByProductId(token: string, productId: string): Promise<{ bom: BOM }> {
-        return this.request(`/api/boms?productId=${productId}`, token);
+        // Backend doesn't support filtering by productId, so fetch all and filter
+        const { boms } = await this.getBOMs(token, true);
+        const bom = boms.find(b => b.productId === productId);
+
+        if (!bom) {
+            throw new Error('BOM not found for this product');
+        }
+
+        return { bom };
     }
 
     /**
@@ -52,12 +75,11 @@ class BOMService {
      * Get Active BOM Version for a Product
      */
     async getActiveBOM(token: string, productId: string): Promise<{ version: BOMVersion }> {
-        // We first get the BOM container, then we find the active version manually or via backend helper
-        // Assuming backend has a helper or we filter on frontend.
-        // Let's assume we query the BOM by product ID and backend allows expanding active version
-        // Actually, let's implement a specific endpoint if needed, but for now reuse getBOMByProductId logic or structure endpoint.
-        // Let's assume /api/boms?productId=XYZ&active=true returns the active structure.
-        return this.request(`/api/boms/active?productId=${productId}`, token);
+        // First get the BOM for this product
+        const { bom } = await this.getBOMByProductId(token, productId);
+
+        // Then get the active version
+        return this.request(`/api/boms/${bom.id}/active`, token);
     }
 }
 

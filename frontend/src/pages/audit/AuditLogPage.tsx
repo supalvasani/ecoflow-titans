@@ -39,7 +39,12 @@ export default function AuditLogPage() {
             setTotal(data.total);
             setError(null);
         } catch (err: any) {
-            setError(err.message || 'Failed to load audit logs');
+            // Check if it's a backend API support issue
+            if (err.message?.includes('404') || err.message?.includes('not found')) {
+                setError('Audit log feature requires backend API support. Please ensure the audit log endpoints are implemented.');
+            } else {
+                setError(err.message || 'Failed to load audit logs');
+            }
         } finally {
             setLoading(false);
         }

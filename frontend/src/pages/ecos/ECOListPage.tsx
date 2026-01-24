@@ -28,7 +28,17 @@ export default function ECOListPage() {
             if (filterType !== 'ALL') filters.type = filterType;
 
             const data = await ecoService.getECOs(token, filters);
-            setEcos(data.ecos);
+
+            // Filter out drafts for approvers - they should only see submitted ECOs
+            let filteredECOs = data.ecos;
+            if (user?.role === Role.APPROVER) {
+                filteredECOs = data.ecos.filter(eco => {
+                    const stage = eco.stage.name.toUpperCase();
+                    return stage !== 'DRAFT' && stage !== 'WIP';
+                });
+            }
+
+            setEcos(filteredECOs);
             setError(null);
         } catch (err: any) {
             setError(err.message || 'Failed to load ECOs');
@@ -39,7 +49,7 @@ export default function ECOListPage() {
 
     useEffect(() => {
         fetchECOs();
-    }, [token, filterType]);
+    }, [token, filterType, user?.role]);
 
     // Removed - now using utility function
 
