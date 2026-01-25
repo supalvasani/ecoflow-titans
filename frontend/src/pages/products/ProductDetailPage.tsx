@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { productService } from '../../services/productService';
-import { ItemStatus, type Product, type ProductVersion, type ProductAttachment } from '../../types/product';
+import { ItemStatus, type Product, type ProductVersion } from '../../types/product';
 import { Role } from '../../types/auth';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -21,11 +21,10 @@ export default function ProductDetailPage() {
     const [product, setProduct] = useState<Product | null>(null);
     const [activeVersion, setActiveVersion] = useState<ProductVersion | null>(null);
     const [versions, setVersions] = useState<ProductVersion[]>([]);
-    const [attachments, setAttachments] = useState<ProductAttachment[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'overview' | 'versions' | 'attachments' | 'bom'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'versions' | 'bom'>('overview');
     const [showECOModal, setShowECOModal] = useState(false);
 
     const isOperations = user?.role === Role.OPERATIONS_USER;
@@ -48,13 +47,7 @@ export default function ProductDetailPage() {
                 try {
                     const versionRes = await productService.getActiveVersion(token, id);
                     setActiveVersion(versionRes.version);
-
-                    // Fetch attachments for active version
-                    const attachRes = await productService.getAttachments(token, id, versionRes.version.id);
-                    setAttachments(attachRes.attachments);
                 } catch (e) {
-                    // Ignore if no active version (e.g. brand new product not set up?) 
-                    // But our invariant says we create v1 on creation.
                     console.error("No active version found or access denied", e);
                 }
 
@@ -125,7 +118,6 @@ export default function ProductDetailPage() {
                     <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                         <TabButton id="overview" label="Overview" icon={FileText} />
                         {!isOperations && <TabButton id="versions" label="Version History" icon={History} />}
-                        <TabButton id="attachments" label="Attachments" icon={FileText} />
                         <TabButton id="bom" label="Bill of Materials" icon={Box} />
                     </nav>
                 </div>
@@ -197,30 +189,7 @@ export default function ProductDetailPage() {
                         </Card>
                     )}
 
-                    {activeTab === 'attachments' && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Attachments</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {attachments.length === 0 ? (
-                                    <p className="text-muted-foreground">No attachments found for this version.</p>
-                                ) : (
-                                    <ul className="space-y-2">
-                                        {attachments.map((att) => (
-                                            <li key={att.id} className="flex items-center p-2 border rounded hover:bg-gray-50">
-                                                <FileText className="mr-3 h-5 w-5 text-gray-400" />
-                                                <span className="flex-1 font-medium">{att.filename}</span>
-                                                <Button variant="ghost" size="sm" asChild>
-                                                    <a href={att.url} target="_blank" rel="noreferrer">Download</a>
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
+
 
                     {activeTab === 'bom' && (
                         <Card>

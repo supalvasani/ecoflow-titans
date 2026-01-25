@@ -143,3 +143,73 @@ export function ProductChangesSummary({ currentProduct, proposedChanges }: Produ
         </Card>
     );
 }
+
+interface BOMChangesSummaryProps {
+    // We expect a list of components with 'action' properties (ADD, UPDATE, REMOVE, KEEP)
+    components: Array<{
+        partNumber?: string;
+        name: string;
+        quantity: number;
+        originalQuantity?: number; // Should be populated for updates
+        action: 'ADD' | 'UPDATE' | 'REMOVE' | 'KEEP';
+    }>;
+}
+
+export function BOMChangesSummary({ components }: BOMChangesSummaryProps) {
+    const changes = components.filter(c => c.action !== 'KEEP');
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <ArrowRight className="h-5 w-5 text-blue-600" />
+                    BOM Change Comparison
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {changes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                        No changes proposed to the BOM structure.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {changes.map((comp, idx) => (
+                            <div key={idx} className={`flex items-center justify-between p-3 border rounded-md ${comp.action === 'ADD' ? 'bg-green-50 border-green-200' :
+                                    comp.action === 'REMOVE' ? 'bg-red-50 border-red-200' :
+                                        comp.action === 'UPDATE' ? 'bg-blue-50 border-blue-200' : ''
+                                }`}>
+                                <div>
+                                    <div className="font-medium flex items-center gap-2">
+                                        {comp.name}
+                                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${comp.action === 'ADD' ? 'bg-green-200 text-green-800' :
+                                                comp.action === 'REMOVE' ? 'bg-red-200 text-red-800' :
+                                                    'bg-blue-200 text-blue-800'
+                                            }`}>
+                                            {comp.action}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">{comp.partNumber || 'No Part #'}</div>
+                                </div>
+                                <div className="text-right text-sm">
+                                    {comp.action === 'ADD' && (
+                                        <span className="text-green-700 font-bold">+{comp.quantity}</span>
+                                    )}
+                                    {comp.action === 'REMOVE' && (
+                                        <span className="text-red-700 font-bold">-{comp.quantity}</span>
+                                    )}
+                                    {comp.action === 'UPDATE' && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground line-through">{comp.originalQuantity || '?'}</span>
+                                            <ArrowRight className="h-3 w-3" />
+                                            <span className="font-bold text-blue-700">{comp.quantity}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}

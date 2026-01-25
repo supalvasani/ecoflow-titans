@@ -86,6 +86,8 @@ export class BOMService {
                     orderBy: { version: 'desc' },
                     include: {
                         productVersion: true,
+                        components: true,
+                        operations: true,
                     },
                 },
             },

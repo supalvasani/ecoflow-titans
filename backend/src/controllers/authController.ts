@@ -112,3 +112,25 @@ export const getMe = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+/**
+ * @swagger
+ * /api/auth/users:
+ *   get:
+ *     summary: Get all users
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
+export const getUsers = async (req: AuthRequest, res: Response) => {
+    try {
+        const users = await authService.getAllUsers();
+        res.json({ users });
+    } catch (error: any) {
+        console.error('Get users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

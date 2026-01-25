@@ -8,7 +8,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { AlertCircle, Eye, FileText, Filter, Package } from 'lucide-react';
+import { AlertCircle, Eye, FileText, Filter, Package, Plus } from 'lucide-react';
 import { Role } from '../../types/auth';
 import { getStageBadgeClass, getTypeBadgeClass } from '../../utils/badgeUtils';
 
@@ -72,6 +72,11 @@ export default function ECOListPage() {
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight">Engineering Change Orders</h2>
                         <p className="text-muted-foreground">Manage change requests and approvals</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Button onClick={() => navigate('/ecos/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> New ECO
+                        </Button>
                     </div>
                 </div>
 

@@ -8,15 +8,18 @@ import { ApproverDashboard } from './pages/ApproverDashboard';
 import { OperationsDashboard } from './pages/OperationsDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import ProductListPage from './pages/products/ProductListPage';
+import ProductCreatePage from './pages/products/ProductCreatePage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
 import ProductCreatePage from './pages/products/ProductCreatePage';
 import ECOListPage from './pages/ecos/ECOListPage';
+import ECOCreatePage from './pages/ecos/ECOCreatePage';
 import ECODetailPage from './pages/ecos/ECODetailPage';
 import BOMPage from './pages/boms/BOMPage';
 import BOMDetailPage from './pages/boms/BOMDetailPage';
 import AuditLogPage from './pages/audit/AuditLogPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import UserManagementPage from './pages/admin/UserManagementPage';
 import { Role } from './types/auth';
 
 function App() {
@@ -77,6 +80,14 @@ function App() {
             }
           />
           <Route
+            path="/products/new"
+            element={
+              <ProtectedRoute>
+                <ProductCreatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/products/:id"
             element={
               <ProtectedRoute>
@@ -94,6 +105,14 @@ function App() {
           />
 
           {/* ECO Routes */}
+          <Route
+            path="/ecos/new"
+            element={
+              <ProtectedRoute>
+                <ECOCreatePage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/ecos"
             element={
@@ -155,6 +174,16 @@ function App() {
             element={
               <ProtectedRoute requiredRole={Role.ADMIN}>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* User Management Route */}
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <UserManagementPage />
               </ProtectedRoute>
             }
           />

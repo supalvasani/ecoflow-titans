@@ -14,7 +14,7 @@ export interface BOMComponent {
     bomVersionId: string;
     componentVersionId: string;
     quantity: number;
-    componentVersion: ProductVersion; // Nested for tree view
+    componentVersion: ProductVersion & { product?: Product }; // Nested for tree view with optional product
 }
 
 export interface BOMVersion {

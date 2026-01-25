@@ -61,6 +61,26 @@ class ApiService {
             },
         });
     }
+
+    /**
+     * Get all users
+     */
+    async getUsers(token: string): Promise<{ users: User[] }> {
+        const response = await fetch(`${this.baseUrl}/api/auth/users`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch users');
+        }
+
+        return response.json();
+    }
 }
 
 export const apiService = new ApiService(API_BASE_URL);

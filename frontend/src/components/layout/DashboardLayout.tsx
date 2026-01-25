@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Role } from '../../types/auth';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FileText, Settings, LogOut, BarChart3, History, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { LayoutDashboard, Package, FileText, Settings, LogOut, BarChart3, History, ChevronLeft, ChevronRight, Menu, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface DashboardLayoutProps {
@@ -83,20 +83,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             {/* Top Bar */}
-            <header className={`bg-white border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-50 transition-all duration-300 ${
-                isScrolled ? 'h-14 shadow-lg' : 'h-16 shadow-soft'
-            }`}>
+            <header className={`bg-white border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'h-14 shadow-lg' : 'h-16 shadow-soft'
+                }`}>
                 <div className="flex items-center gap-3">
                     {/* Mobile Menu Button */}
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         className="md:hidden hover:bg-primary-soft hover:text-primary"
                         onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                     >
                         <Menu className="h-5 w-5" />
                     </Button>
-                    
+
                     <div className={`flex items-center gap-3 transition-all duration-300 ${isScrolled ? 'scale-95' : 'scale-100'}`}>
                         <EcoFlowLogo className={`transition-all duration-300 ${isScrolled ? 'h-8 w-8' : 'h-10 w-10'}`} />
                         <span className={`font-bold text-gray-900 transition-all duration-300 ${isScrolled ? 'text-lg' : 'text-xl'}`}>
@@ -117,9 +116,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar */}
-                <aside className={`bg-white border-r border-border hidden md:flex md:flex-col shadow-soft transition-all duration-300 ease-in-out ${
-                    isSidebarCollapsed ? 'w-16' : 'w-64'
-                }`}>
+                <aside className={`bg-white border-r border-border hidden md:flex md:flex-col shadow-soft transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-16' : 'w-64'
+                    }`}>
                     <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                         {/* Menu Header with Toggle */}
                         <div className="flex items-center justify-between mb-3 px-3">
@@ -193,6 +191,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                         </div>
                                     </>
                                 )}
+                                <NavLink to="/admin/users" icon={Users} label="Users" />
                                 <NavLink to="/settings" icon={Settings} label="Settings" />
                             </>
                         )}
