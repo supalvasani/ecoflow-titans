@@ -29,6 +29,7 @@ enum ItemStatus {
 enum ECOType {
   PRODUCT
   BOM
+  BOM_CHANGE
 }
 
 // =======================
@@ -43,8 +44,9 @@ model User {
   role      Role
   createdAt DateTime @default(now())
 
-  ecos ECO[]
-  logs AuditLog[]
+  ecos         ECO[]
+  assignedEcos ECO[]      @relation("AssignedTo")
+  logs         AuditLog[]
 }
 
 // =======================
@@ -58,7 +60,7 @@ model Product {
 
   versions  ProductVersion[]
   boms      BOM[]
-  ecoDrafts ECOProductDraft[]
+  ecoDrafts ECO[] @relation("DraftProduct")
 }
 
 // =======================
@@ -81,7 +83,6 @@ model ProductVersion {
 
   // ✅ Inverse relation required by Prisma
   componentsUsedIn BOMComponent[]
-  draftComponents  ECODraftComponent[]
 }
 
 // =======================
@@ -109,7 +110,7 @@ model BOM {
 
   product   Product         @relation(fields: [productId], references: [id])
   versions  BOMVersion[]
-  ecoDrafts ECOBOMDraft[]
+  ecoDrafts ECO[] @relation("DraftBOM")
 }
 
 // =======================
@@ -164,101 +165,55 @@ model BOMOperation {
 // =======================
 
 model ECO {
-  id            String    @id @default(uuid())
-  title         String
-  type          ECOType
-  createdById   String
-  stageId       String
-  effectiveDate DateTime?
-  versionUpdate Boolean   @default(true)
+  id                String    @id @default(uuid())
+  title             String
+  type              ECOType
+  createdById       String
+  assigneeId        String?
+  stageId           String
+  effectiveDate     DateTime?
+  versionUpdate     Boolean   @default(true)
+  mandatoryApproval Boolean   @default(false)
 
   // ECO targets versions only
   productVersionId String?
   bomVersionId     String?
 
+  // ==========================
+  // Draft Data (Consolidated)
+  // ==========================
+  // Product Draft Fields
+  draftProductId String?
+  draftName      String?
+  draftSalePrice Decimal? @db.Decimal(10, 2)
+  draftCostPrice Decimal? @db.Decimal(10, 2)
+
+  // BOM Draft Fields
+  draftBomId      String?
+  draftNotes      String?
+  
+  // Complex Draft Data (stored as JSON)
+  // Store [{ componentVersionId, quantity, action }]
+  draftComponents Json? 
+  // Store [{ name, timeMinutes, workCenter, action }]
+  draftOperations Json?
+  // Store [{ filename, url, action }]
+  draftAttachments Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdBy User       @relation(fields: [createdById], references: [id])
-  stage     ECOStage   @relation(fields: [stageId], references: [id])
-  logs      AuditLog[]
+  createdBy  User       @relation(fields: [createdById], references: [id])
+  assignedTo User?      @relation("AssignedTo", fields: [assigneeId], references: [id])
+  stage      ECOStage   @relation(fields: [stageId], references: [id])
+  logs       AuditLog[]
   
-  // Draft data relations
-  productDraft     ECOProductDraft?
-  bomDraft         ECOBOMDraft?
-  draftAttachments ECODraftAttachment[]
+  // Optional relations for draft targets
+  draftProduct Product? @relation("DraftProduct", fields: [draftProductId], references: [id])
+  draftBom     BOM?     @relation("DraftBOM", fields: [draftBomId], references: [id])
 }
 
-// =======================
-// ECO Draft Tables
-// =======================
-
-// Draft Product Changes
-model ECOProductDraft {
-  id        String   @id @default(uuid())
-  ecoId     String   @unique
-  productId String
-  
-  // Proposed changes (nullable = no change proposed)
-  name      String?
-  salePrice Decimal? @db.Decimal(10, 2)
-  costPrice Decimal? @db.Decimal(10, 2)
-  
-  eco     ECO     @relation(fields: [ecoId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-}
-
-// Draft BOM Changes
-model ECOBOMDraft {
-  id    String @id @default(uuid())
-  ecoId String @unique
-  bomId String
-  
-  // Proposed changes (if any metadata changes needed)
-  notes String?
-  
-  eco ECO @relation(fields: [ecoId], references: [id], onDelete: Cascade)
-  bom BOM @relation(fields: [bomId], references: [id])
-  
-  draftComponents ECODraftComponent[]
-  draftOperations ECODraftOperation[]
-}
-
-// Draft Attachments
-model ECODraftAttachment {
-  id               String @id @default(uuid())
-  ecoId            String
-  productVersionId String?
-  filename         String
-  url              String
-  action           String // "ADD" or "DELETE"
-  
-  eco ECO @relation(fields: [ecoId], references: [id], onDelete: Cascade)
-}
-
-// Draft Components
-model ECODraftComponent {
-  id                 String @id @default(uuid())
-  bomDraftId         String
-  componentVersionId String
-  quantity           Int
-  action             String // "ADD", "UPDATE", "DELETE"
-  
-  bomDraft         ECOBOMDraft    @relation(fields: [bomDraftId], references: [id], onDelete: Cascade)
-  componentVersion ProductVersion @relation(fields: [componentVersionId], references: [id])
-}
-
-// Draft Operations
-model ECODraftOperation {
-  id          String @id @default(uuid())
-  bomDraftId  String
-  name        String
-  timeMinutes Int
-  workCenter  String
-  action      String // "ADD", "UPDATE", "DELETE"
-  
-  bomDraft ECOBOMDraft @relation(fields: [bomDraftId], references: [id], onDelete: Cascade)
-}
+// REMOVED: ECOProductDraft, ECOBOMDraft, ECODraftComponent, ECODraftOperation, ECODraftAttachment
 
 // =======================
 // ECO Workflow

@@ -51,15 +51,31 @@ export default function BOMDetailPage() {
             setProduct(productData);
 
             // Set versions
-            if (bomData.versions) {
+            if (bomData.versions && bomData.versions.length > 0) {
                 setVersions(bomData.versions);
                 // Find active version
                 const activeVersion = bomData.versions.find((v: BOMVersion) => v.status === ItemStatus.ACTIVE);
+
                 if (activeVersion) {
-                    // Fetch full version structure
-                    const { version } = await bomService.getBOMStructure(token, activeVersion.id);
-                    setSelectedVersion(version);
+                    try {
+                        // Fetch full version structure
+                        const { version } = await bomService.getBOMStructure(token, activeVersion.id);
+                        console.log('Active version details:', version);
+                        setSelectedVersion(version);
+                    } catch (verErr) {
+                        console.error('Failed to fetch active version details:', verErr);
+                        // Fallback to basic version info if detailed fetch fails
+                        setSelectedVersion(activeVersion);
+                    }
+                } else {
+                    // No active version, select the first one or none
+                    console.log('No active version found');
+                    if (bomData.versions.length > 0) {
+                        setSelectedVersion(bomData.versions[0]);
+                    }
                 }
+            } else {
+                console.log('No versions found for BOM');
             }
 
             setError(null);
@@ -85,16 +101,17 @@ export default function BOMDetailPage() {
     };
 
     const calculateTotalCost = () => {
-        if (!selectedVersion?.components) return 0;
+        if (!selectedVersion?.components || !Array.isArray(selectedVersion.components)) return 0;
         return selectedVersion.components.reduce((total, comp) => {
-            const cost = comp.componentVersion?.costPrice || 0;
-            return total + (comp.quantity * cost);
+            const cost = Number(comp?.componentVersion?.costPrice ?? 0);
+            const qty = Number(comp?.quantity ?? 0);
+            return total + (qty * cost);
         }, 0);
     };
 
     const calculateTotalTime = () => {
-        if (!selectedVersion?.operations) return 0;
-        return selectedVersion.operations.reduce((total, op) => total + op.timeMinutes, 0);
+        if (!selectedVersion?.operations || !Array.isArray(selectedVersion.operations)) return 0;
+        return selectedVersion.operations.reduce((total, op) => total + (op?.timeMinutes ?? 0), 0);
     };
 
     if (loading && !bom) {
@@ -247,19 +264,19 @@ export default function BOMDetailPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {selectedVersion.components.map((comp: BOMComponent) => (
-                                        <TableRow key={comp.id}>
+                                    {Array.isArray(selectedVersion.components) && selectedVersion.components.map((comp: BOMComponent) => (
+                                        <TableRow key={comp.id || Math.random().toString()}>
                                             <TableCell className="font-medium">
                                                 <div className="flex items-center">
                                                     <Settings className="h-4 w-4 mr-2 text-gray-500" />
-                                                    Component v{comp.componentVersion?.version}
+                                                    Component v{comp?.componentVersion?.version ?? '?'}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>v{comp.componentVersion?.version}</TableCell>
-                                            <TableCell>{comp.quantity}</TableCell>
-                                            <TableCell>${comp.componentVersion?.costPrice?.toFixed(2) || '0.00'}</TableCell>
+                                            <TableCell>v{comp?.componentVersion?.version ?? '?'}</TableCell>
+                                            <TableCell>{comp?.quantity ?? 0}</TableCell>
+                                            <TableCell>${Number(comp?.componentVersion?.costPrice ?? 0).toFixed(2)}</TableCell>
                                             <TableCell className="text-right font-bold">
-                                                ${((comp.quantity || 0) * (comp.componentVersion?.costPrice || 0)).toFixed(2)}
+                                                ${(Number(comp?.quantity ?? 0) * Number(comp?.componentVersion?.costPrice ?? 0)).toFixed(2)}
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -293,16 +310,16 @@ export default function BOMDetailPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {selectedVersion.operations.map((op: BOMOperation) => (
-                                        <TableRow key={op.id}>
+                                    {Array.isArray(selectedVersion.operations) && selectedVersion.operations.map((op: BOMOperation) => (
+                                        <TableRow key={op.id || Math.random().toString()}>
                                             <TableCell className="font-medium">
                                                 <div className="flex items-center">
                                                     <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                                                    {op.name}
+                                                    {op?.name ?? 'Unknown'}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{op.timeMinutes}</TableCell>
-                                            <TableCell>{op.workCenter}</TableCell>
+                                            <TableCell>{op?.timeMinutes ?? 0}</TableCell>
+                                            <TableCell>{op?.workCenter ?? 'N/A'}</TableCell>
                                         </TableRow>
                                     ))}
                                     <TableRow className="bg-muted/50 font-bold">

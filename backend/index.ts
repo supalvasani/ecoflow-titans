@@ -12,6 +12,7 @@ import ecoRoutes from './src/routes/ecoRoutes.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
 import auditRoutes from './src/routes/auditRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
 import { db } from './src/libs/prisma.js';
 
@@ -19,8 +20,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
-app.use(cors());
 app.use(cookieParser());
 
 // Swagger Documentation
@@ -37,6 +43,7 @@ app.use('/api/ecos', ecoRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/users', userRoutes);
 
 // Simple Connection Test Route
 app.get('/test-db', async (req: express.Request, res: express.Response) => {

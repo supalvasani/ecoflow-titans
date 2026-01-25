@@ -30,23 +30,28 @@ class ECOService {
     /**
      * Create Product ECO
      */
-    async createProductECO(token: string, productId: string, title: string): Promise<string> {
-        const response = await this.request<{ eco: ECO }>('/api/ecos/product', token, {
+    /**
+     * Create Unified ECO
+     */
+    async createECO(token: string, data: any): Promise<{ eco: ECO }> {
+        return this.request<{ eco: ECO }>('/api/ecos/create', token, {
             method: 'POST',
-            body: JSON.stringify({ productId, title }),
+            body: JSON.stringify(data),
         });
-        return response.eco.id;
     }
 
     /**
-     * Create BOM ECO
+     * Create Product ECO (Legacy)
+     */
+    async createProductECO(token: string, productId: string, title: string): Promise<string> {
+        return (await this.createECO(token, { title, type: 'PRODUCT', productId })).eco.id;
+    }
+
+    /**
+     * Create BOM ECO (Legacy)
      */
     async createBOMECO(token: string, bomId: string, title: string): Promise<string> {
-        const response = await this.request<{ eco: ECO }>('/api/ecos/bom', token, {
-            method: 'POST',
-            body: JSON.stringify({ bomId, title }),
-        });
-        return response.eco.id;
+        return (await this.createECO(token, { title, type: 'BOM', bomId })).eco.id;
     }
 
     /**
@@ -130,6 +135,26 @@ class ECOService {
     async applyECO(token: string, ecoId: string): Promise<any> {
         return this.request(`/api/ecos/${ecoId}/apply`, token, {
             method: 'POST',
+        });
+    }
+
+    /**
+     * Set mandatory approval flag (Admin only)
+     */
+    async setMandatoryApproval(token: string, ecoId: string, mandatoryApproval: boolean): Promise<{ eco: ECO }> {
+        return this.request(`/api/ecos/${ecoId}/mandatory-approval`, token, {
+            method: 'PATCH',
+            body: JSON.stringify({ mandatoryApproval }),
+        });
+    }
+
+    /**
+     * Add Draft Attachment
+     */
+    async addDraftAttachment(token: string, ecoId: string, filename: string, url: string, action: string): Promise<any> {
+        return this.request(`/api/ecos/${ecoId}/draft/attachment`, token, {
+            method: 'POST',
+            body: JSON.stringify({ filename, url, action }),
         });
     }
 

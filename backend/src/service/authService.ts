@@ -59,6 +59,21 @@ export class AuthService {
     }
 
     /**
+     * Get all users (lightweight)
+     */
+    async getAllUsers() {
+        return db.user.findMany({
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+            },
+            orderBy: { name: 'asc' },
+        });
+    }
+
+    /**
      * Logout (stateless JWT - handled client-side)
      */
     async logout() {

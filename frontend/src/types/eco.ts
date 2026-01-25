@@ -3,7 +3,8 @@ import type { Product } from './product';
 
 export const ECOType = {
     PRODUCT: 'PRODUCT',
-    BOM: 'BOM'
+    BOM: 'BOM',
+    BOM_CHANGE: 'BOM_CHANGE'
 } as const;
 export type ECOType = (typeof ECOType)[keyof typeof ECOType];
 
@@ -25,22 +26,61 @@ export interface ECOProductDraft {
     product?: Product;
 }
 
+export interface ECODraftComponent {
+    id: string;
+    bomDraftId: string;
+    componentVersionId: string;
+    quantity: number;
+    action: 'ADD' | 'UPDATE' | 'DELETE';
+    componentVersion?: any;
+}
+
+export interface ECODraftOperation {
+    id: string;
+    bomDraftId: string;
+    name: string;
+    timeMinutes: number;
+    workCenter: string;
+    action: 'ADD' | 'UPDATE' | 'DELETE';
+}
+
+export interface ECOBOMDraft {
+    id: string;
+    ecoId: string;
+    bomId: string;
+    notes: string | null;
+    draftComponents: ECODraftComponent[];
+    draftOperations: ECODraftOperation[];
+    bom?: any;
+}
+
+export interface ECODraftAttachment {
+    id: string;
+    ecoId: string;
+    filename: string;
+    url: string;
+    action: 'ADD' | 'DELETE';
+}
+
 export interface ECO {
     id: string;
     title: string;
     type: ECOType;
     createdById: string;
+    assigneeId: string | null;
     stageId: string;
     effectiveDate: string | null;
     versionUpdate: boolean;
+    mandatoryApproval: boolean;
     productVersionId: string | null;
     bomVersionId: string | null;
     createdAt: string;
     updatedAt: string;
     stage: ECOStage;
     createdBy: Pick<User, 'id' | 'name' | 'email'>;
-    productDraft?: ECOProductDraft;
-    // bomDraft type to be added when BOM module is implemented
+    productDraft?: ECOProductDraft | null;
+    bomDraft?: ECOBOMDraft | null;
+    draftAttachments?: ECODraftAttachment[];
 }
 
 export interface AuditLog {

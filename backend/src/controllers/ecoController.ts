@@ -29,27 +29,11 @@ import { ECOType } from '@prisma/client';
  *       201:
  *         description: ECO created successfully
  */
-export const createProductECO = async (req: AuthRequest, res: Response) => {
-    try {
-        const { productId, title } = req.body;
-        const userId = req.user!.userId;
-
-        const eco = await ecoService.createProductECO(productId, title, userId);
-        res.status(201).json({
-            message: 'Product ECO created successfully',
-            eco,
-        });
-    } catch (error: any) {
-        console.error('Create product ECO error:', error);
-        res.status(400).json({ error: error.message || 'Failed to create product ECO' });
-    }
-};
-
 /**
  * @swagger
- * /api/ecos/bom:
+ * /api/ecos/create:
  *   post:
- *     summary: Create a new ECO for a BOM
+ *     summary: Create a new ECO (Unified)
  *     tags: [ECOs]
  *     security:
  *       - bearerAuth: []
@@ -60,32 +44,100 @@ export const createProductECO = async (req: AuthRequest, res: Response) => {
  *           schema:
  *             type: object
  *             required:
- *               - bomId
  *               - title
+ *               - type
  *             properties:
- *               bomId:
- *                 type: string
  *               title:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [PRODUCT, BOM, BOM_CHANGE]
+ *               assigneeId:
+ *                 type: string
+ *               effectiveDate:
+ *                 type: string
+ *                 format: date
+ *               versionUpdate:
+ *                 type: boolean
+ *               productId:
+ *                 type: string
+ *               bomId:
  *                 type: string
  *     responses:
  *       201:
  *         description: ECO created successfully
  */
-export const createBOMECO = async (req: AuthRequest, res: Response) => {
+export const createECO = async (req: AuthRequest, res: Response) => {
     try {
-        const { bomId, title } = req.body;
+        const { title, type, assigneeId, effectiveDate, versionUpdate, productId, bomId, initialChanges } = req.body;
         const userId = req.user!.userId;
 
-        const eco = await ecoService.createBOMECO(bomId, title, userId);
+        // Convert effectiveDate to Date object if present
+        const dateObj = effectiveDate ? new Date(effectiveDate) : undefined;
+
+        const eco = await ecoService.createECO({
+            title,
+            type: type as ECOType,
+            createdById: userId,
+            ...(assigneeId ? { assigneeId } : {}),
+            ...(dateObj ? { effectiveDate: dateObj } : {}),
+            ...(versionUpdate !== undefined ? { versionUpdate } : {}),
+            ...(productId ? { productId } : {}),
+            ...(bomId ? { bomId } : {}),
+            initialChanges
+        });
+
         res.status(201).json({
-            message: 'BOM ECO created successfully',
+            message: 'ECO created successfully',
             eco,
         });
     } catch (error: any) {
-        console.error('Create BOM ECO error:', error);
+        console.error('Create ECO error:', error);
+        res.status(400).json({ error: error.message || 'Failed to create ECO' });
+    }
+};
+
+export const createProductECO = async (req: AuthRequest, res: Response) => {
+    try {
+        const { productId, title, name, salePrice, costPrice } = req.body;
+        const userId = req.user!.userId;
+        const initialChanges = { name, salePrice, costPrice };
+
+        const eco = await ecoService.createECO({
+            title,
+            type: ECOType.PRODUCT,
+            createdById: userId,
+            productId,
+            initialChanges
+        });
+
+        res.status(201).json({ message: 'Product ECO created successfully', eco });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message || 'Failed to create product ECO' });
+    }
+};
+
+export const createBOMECO = async (req: AuthRequest, res: Response) => {
+    try {
+        const { bomId, title, notes, components } = req.body;
+        const userId = req.user!.userId;
+        const initialChanges = { notes, components };
+
+        const eco = await ecoService.createECO({
+            title,
+            type: ECOType.BOM,
+            createdById: userId,
+            bomId,
+            initialChanges
+        });
+
+        res.status(201).json({ message: 'BOM ECO created successfully', eco });
+    } catch (error: any) {
         res.status(400).json({ error: error.message || 'Failed to create BOM ECO' });
     }
 };
+
+
 
 /**
  * @swagger
@@ -360,6 +412,40 @@ export const submitForReview = async (req: AuthRequest, res: Response) => {
 
 /**
  * @swagger
+ * /api/ecos/{id}/validate:
+ *   post:
+ *     summary: Validate ECO (advance stage without approval)
+ *     tags: [ECOs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: ECO validated and advanced
+ */
+export const validateECO = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.userId;
+
+        const eco = await ecoService.advanceStage(id as string, userId);
+        res.json({
+            message: 'ECO validated and advanced to next stage successfully',
+            eco,
+        });
+    } catch (error: any) {
+        console.error('Validate ECO error:', error);
+        res.status(400).json({ error: error.message || 'Failed to validate ECO' });
+    }
+};
+
+/**
+ * @swagger
  * /api/ecos/{id}/approve:
  *   post:
  *     summary: Approve ECO
@@ -495,6 +581,62 @@ export const getECOStatistics = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         console.error('Get ECO statistics error:', error);
         res.status(500).json({ error: 'Failed to fetch ECO statistics' });
+    }
+};
+
+/**
+ * @swagger
+ * /api/ecos/{id}/mandatory-approval:
+ *   patch:
+ *     summary: Set mandatory approval flag (Admin only)
+ *     tags: [ECOs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mandatoryApproval
+ *             properties:
+ *               mandatoryApproval:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Mandatory approval flag updated
+ *       403:
+ *         description: Only admins can update this flag
+ */
+export const setMandatoryApproval = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { mandatoryApproval } = req.body;
+        const userId = req.user!.userId;
+        const userRole = req.user!.role;
+
+        if (typeof mandatoryApproval !== 'boolean') {
+            return res.status(400).json({ error: 'mandatoryApproval must be a boolean' });
+        }
+
+        const eco = await ecoService.setMandatoryApproval(id as string, mandatoryApproval, userId, userRole);
+        res.json({
+            message: 'Mandatory approval flag updated successfully',
+            eco,
+        });
+    } catch (error: any) {
+        if (error.message.includes('Only admins')) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Set mandatory approval error:', error);
+        res.status(400).json({ error: error.message || 'Failed to update mandatory approval flag' });
     }
 };
 

@@ -6,7 +6,7 @@ export class ProductService {
      * Create a new product with initial version (v1)
      */
     async createProduct(name: string, salePrice: number, costPrice: number, userId: string) {
-        if (!name || !salePrice || !costPrice) {
+        if (!name || salePrice === undefined || costPrice === undefined || salePrice === null || costPrice === null) {
             throw new Error('Name, sale price, and cost price are required');
         }
 
