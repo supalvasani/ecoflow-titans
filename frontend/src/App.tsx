@@ -1,35 +1,168 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { RootRedirect } from './components/RootRedirect';
+import { LoginPage } from './pages/LoginPage';
+import { EngineeringDashboard } from './pages/EngineeringDashboard';
+import { ApproverDashboard } from './pages/ApproverDashboard';
+import { OperationsDashboard } from './pages/OperationsDashboard';
+import { AdminDashboard } from './pages/AdminDashboard';
+import ProductListPage from './pages/products/ProductListPage';
+import ProductDetailPage from './pages/products/ProductDetailPage';
+import ProductCreatePage from './pages/products/ProductCreatePage';
+import ECOListPage from './pages/ecos/ECOListPage';
+import ECODetailPage from './pages/ecos/ECODetailPage';
+import BOMPage from './pages/boms/BOMPage';
+import BOMDetailPage from './pages/boms/BOMDetailPage';
+import AuditLogPage from './pages/audit/AuditLogPage';
+import ReportsPage from './pages/reports/ReportsPage';
+import SettingsPage from './pages/settings/SettingsPage';
+import { Role } from './types/auth';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Root - Redirects based on auth status */}
+          <Route path="/" element={<RootRedirect />} />
+
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Role-Based Protected Routes */}
+          <Route
+            path="/engineering"
+            element={
+              <ProtectedRoute requiredRole={Role.ENGINEERING_USER}>
+                <EngineeringDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/approver"
+            element={
+              <ProtectedRoute requiredRole={Role.APPROVER}>
+                <ApproverDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operations"
+            element={
+              <ProtectedRoute requiredRole={Role.OPERATIONS_USER}>
+                <OperationsDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Product Routes - Accessible to all authenticated users */}
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <ProtectedRoute>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/new"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <ProductCreatePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ECO Routes */}
+          <Route
+            path="/ecos"
+            element={
+              <ProtectedRoute>
+                <ECOListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ecos/:id"
+            element={
+              <ProtectedRoute>
+                <ECODetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* BOM Routes */}
+          <Route
+            path="/boms"
+            element={
+              <ProtectedRoute>
+                <BOMPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/boms/:id"
+            element={
+              <ProtectedRoute>
+                <BOMDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Audit Log Routes */}
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute>
+                <AuditLogPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Reports Routes */}
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Settings Routes */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
+
