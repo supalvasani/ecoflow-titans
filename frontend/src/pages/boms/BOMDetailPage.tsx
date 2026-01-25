@@ -46,8 +46,13 @@ export default function BOMDetailPage() {
             console.log('BOM data received:', bomData);
             setBOM(bomData);
 
-            // Fetch product details
-            const { product: productData } = await productService.getProductById(token, bomData.productId);
+            // Fetch product details - use product from BOM data or productId
+            const productId = bomData.productId || bomData.product?.id;
+            if (!productId) {
+                throw new Error('Product ID not found in BOM data');
+            }
+
+            const { product: productData } = await productService.getProductById(token, productId);
             setProduct(productData);
 
             // Set versions
@@ -247,22 +252,27 @@ export default function BOMDetailPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {selectedVersion.components.map((comp: BOMComponent) => (
-                                        <TableRow key={comp.id}>
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center">
-                                                    <Settings className="h-4 w-4 mr-2 text-gray-500" />
-                                                    Component v{comp.componentVersion?.version}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>v{comp.componentVersion?.version}</TableCell>
-                                            <TableCell>{comp.quantity}</TableCell>
-                                            <TableCell>${comp.componentVersion?.costPrice?.toFixed(2) || '0.00'}</TableCell>
-                                            <TableCell className="text-right font-bold">
-                                                ${((comp.quantity || 0) * (comp.componentVersion?.costPrice || 0)).toFixed(2)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {selectedVersion.components.map((comp: BOMComponent) => {
+                                        const unitCost = Number(comp.componentVersion?.costPrice) || 0;
+                                        const totalCost = (comp.quantity || 0) * unitCost;
+
+                                        return (
+                                            <TableRow key={comp.id}>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center">
+                                                        <Settings className="h-4 w-4 mr-2 text-gray-500" />
+                                                        Component v{comp.componentVersion?.version}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>v{comp.componentVersion?.version}</TableCell>
+                                                <TableCell>{comp.quantity}</TableCell>
+                                                <TableCell>${unitCost.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-bold">
+                                                    ${totalCost.toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                     <TableRow className="bg-muted/50 font-bold">
                                         <TableCell colSpan={4} className="text-right">Total Material Cost:</TableCell>
                                         <TableCell className="text-right">${calculateTotalCost().toFixed(2)}</TableCell>

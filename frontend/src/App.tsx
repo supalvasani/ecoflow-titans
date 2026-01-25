@@ -9,6 +9,7 @@ import { OperationsDashboard } from './pages/OperationsDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import ProductListPage from './pages/products/ProductListPage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
+import ProductCreatePage from './pages/products/ProductCreatePage';
 import ECOListPage from './pages/ecos/ECOListPage';
 import ECODetailPage from './pages/ecos/ECODetailPage';
 import BOMPage from './pages/boms/BOMPage';
@@ -80,6 +81,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/new"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <ProductCreatePage />
               </ProtectedRoute>
             }
           />
