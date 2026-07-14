@@ -269,19 +269,19 @@ export default function BOMDetailPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {Array.isArray(selectedVersion.components) && selectedVersion.components.map((comp: BOMComponent) => (
-                                        <TableRow key={comp.id || Math.random().toString()}>
+                                    {selectedVersion.components.map((comp: BOMComponent) => (
+                                        <TableRow key={comp.id}>
                                             <TableCell className="font-medium">
                                                 <div className="flex items-center">
                                                     <Settings className="h-4 w-4 mr-2 text-gray-500" />
-                                                    Component v{comp?.componentVersion?.version ?? '?'}
+                                                    Component v{comp.componentVersion?.version}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>v{comp?.componentVersion?.version ?? '?'}</TableCell>
-                                            <TableCell>{comp?.quantity ?? 0}</TableCell>
-                                            <TableCell>${Number(comp?.componentVersion?.costPrice ?? 0).toFixed(2)}</TableCell>
+                                            <TableCell>v{comp.componentVersion?.version}</TableCell>
+                                            <TableCell>{comp.quantity}</TableCell>
+                                            <TableCell>${Number(comp.componentVersion?.costPrice || 0).toFixed(2)}</TableCell>
                                             <TableCell className="text-right font-bold">
-                                                ${(Number(comp?.quantity ?? 0) * Number(comp?.componentVersion?.costPrice ?? 0)).toFixed(2)}
+                                                ${((comp.quantity || 0) * Number(comp.componentVersion?.costPrice || 0)).toFixed(2)}
                                             </TableCell>
                                         </TableRow>
                                     ))}

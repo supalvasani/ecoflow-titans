@@ -10,7 +10,6 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import ProductListPage from './pages/products/ProductListPage';
 import ProductCreatePage from './pages/products/ProductCreatePage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
-import ProductCreatePage from './pages/products/ProductCreatePage';
 import ECOListPage from './pages/ecos/ECOListPage';
 import ECOCreatePage from './pages/ecos/ECOCreatePage';
 import ECODetailPage from './pages/ecos/ECODetailPage';

@@ -37,7 +37,6 @@ export function ECOCreationModal({
     const [selectedBOMId, setSelectedBOMId] = useState(prefilledBOMId || '');
     const [effectiveDate, setEffectiveDate] = useState('');
     const [versionUpdate, setVersionUpdate] = useState(true);
-    const [mandatoryApproval, setMandatoryApproval] = useState(false);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [boms, setBOMs] = useState<BOM[]>([]);

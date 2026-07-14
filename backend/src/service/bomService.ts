@@ -1,131 +1,147 @@
-import { db } from '../libs/prisma.js';
-import { ItemStatus } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, and, desc } from 'drizzle-orm';
+import crypto from 'node:crypto';
 
 export class BOMService {
     /**
-     * Create a new BOM with initial version (v1)
+     * Create a new BOM for a product with initial version (v1)
      */
     async createBOM(productId: string, userId: string) {
         if (!productId) {
             throw new Error('Product ID is required');
         }
 
-        // Verify product exists and get active version
-        const product = await db.product.findUnique({
-            where: { id: productId },
-            include: {
-                versions: {
-                    where: { status: ItemStatus.ACTIVE, isCurrent: true },
-                },
-            },
+        // Check if product exists and get active version
+        const activeProductVersion = await db.query.productVersions.findFirst({
+            where: and(
+                eq(schema.productVersions.productId, productId),
+                eq(schema.productVersions.status, 'ACTIVE'),
+                eq(schema.productVersions.isCurrent, true)
+            ),
         });
 
-        if (!product) {
-            throw new Error('Product not found');
+        if (!activeProductVersion) {
+            throw new Error('Product not found or has no active version');
         }
 
-        if (product.versions.length === 0) {
-            throw new Error('Product has no active version');
-        }
+        const bomId = crypto.randomUUID();
+        const bomVersionId = crypto.randomUUID();
+        const auditId = crypto.randomUUID();
 
-        const activeVersion = product.versions[0]!;
-
-        // Create BOM with initial version
-        const bom = await db.bOM.create({
-            data: {
+        return await db.transaction(async (tx) => {
+            await tx.insert(schema.boms).values({
+                id: bomId,
                 productId,
-                versions: {
-                    create: {
-                        version: 1,
-                        productVersionId: activeVersion.id,
-                        status: ItemStatus.ACTIVE,
-                        isCurrent: true,
-                    },
-                },
-            },
-            include: {
-                product: true,
-                versions: {
-                    include: {
-                        productVersion: true,
-                    },
-                },
-            },
-        });
+            });
 
-        // Create audit log
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.bomVersions).values({
+                id: bomVersionId,
+                bomId,
+                productVersionId: activeProductVersion.id,
+                version: 1,
+                status: 'ACTIVE',
+                isCurrent: true,
+            });
+
+            await tx.insert(schema.auditLogs).values({
+                id: auditId,
                 entity: 'BOM',
-                entityId: bom.id,
+                entityId: bomId,
                 userId,
                 action: 'CREATED',
                 oldValue: null,
-                newValue: `BOM created for product "${product.name}" with version 1`,
-            },
-        });
+                newValue: `BOM created for product ${productId} with version 1`,
+            });
 
-        return bom;
+            const bom = await tx.query.boms.findFirst({
+                where: eq(schema.boms.id, bomId),
+                with: {
+                    versions: {
+                        with: {
+                            components: true,
+                            operations: true,
+                        },
+                    },
+                },
+            });
+
+            return bom;
+        });
     }
 
     /**
-     * Get all BOMs with their active versions
+     * Get all BOMs (Operations user gets ACTIVE versions only)
      */
     async getBOMs(userRole: string, includeArchived: boolean = false) {
         const isOperationsUser = userRole === 'OPERATIONS_USER';
 
-        const boms = await db.bOM.findMany({
-            include: {
+        const boms = await db.query.boms.findMany({
+            with: {
                 product: true,
                 versions: {
-                    where: isOperationsUser
-                        ? { status: ItemStatus.ACTIVE }
-                        : includeArchived
-                            ? {}
-                            : { status: ItemStatus.ACTIVE },
-                    orderBy: { version: 'desc' },
-                    include: {
-                        productVersion: true,
-                        components: true,
+                    where: isOperationsUser || !includeArchived
+                        ? and(eq(schema.bomVersions.status, 'ACTIVE'), eq(schema.bomVersions.isCurrent, true))
+                        : undefined,
+                    orderBy: [desc(schema.bomVersions.version)],
+                    with: {
+                        components: {
+                            with: {
+                                componentVersion: {
+                                    with: {
+                                        product: true,
+                                    },
+                                },
+                            },
+                        },
                         operations: true,
                     },
                 },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [desc(schema.boms.createdAt)],
         });
 
-        return boms;
+        // Resolve active component product version pointers dynamically for Operations / display
+        const resolved = await Promise.all(boms.map(b => this.resolveBOMComponentVersions(b, isOperationsUser)));
+
+        if (isOperationsUser) {
+            return resolved.filter(b => b.versions && b.versions.length > 0);
+        }
+
+        return resolved;
     }
 
     /**
-     * Get BOM by ID with version history
+     * Get BOM by ID
      */
     async getBOMById(bomId: string, userRole: string, includeVersions: boolean = true) {
         const isOperationsUser = userRole === 'OPERATIONS_USER';
 
-        const bom = await db.bOM.findUnique({
-            where: { id: bomId },
-            include: {
+        const bom = await db.query.boms.findFirst({
+            where: eq(schema.boms.id, bomId),
+            with: {
                 product: true,
-                versions: includeVersions
+                ...(includeVersions
                     ? {
-                        where: isOperationsUser ? { status: ItemStatus.ACTIVE } : {},
-                        orderBy: { version: 'desc' },
-                        include: {
-                            productVersion: true,
-                            components: {
-                                include: {
-                                    componentVersion: {
-                                        include: {
-                                            product: true,
+                        versions: {
+                            where: isOperationsUser
+                                ? and(eq(schema.bomVersions.status, 'ACTIVE'), eq(schema.bomVersions.isCurrent, true))
+                                : undefined,
+                            orderBy: [desc(schema.bomVersions.version)],
+                            with: {
+                                components: {
+                                    with: {
+                                        componentVersion: {
+                                            with: {
+                                                product: true,
+                                            },
                                         },
                                     },
                                 },
+                                operations: true,
                             },
-                            operations: true,
                         },
                     }
-                    : false,
+                    : {}),
             },
         });
 
@@ -133,50 +149,29 @@ export class BOMService {
             throw new Error('BOM not found');
         }
 
-        return bom;
+        const versions = (bom as any).versions;
+        if (isOperationsUser && (!versions || versions.length === 0)) {
+            throw new Error('BOM not found or no active version available');
+        }
+
+        return this.resolveBOMComponentVersions(bom, isOperationsUser);
     }
 
     /**
-     * Get all versions of a BOM
-     */
-    async getBOMVersions(bomId: string) {
-        const versions = await db.bOMVersion.findMany({
-            where: { bomId },
-            orderBy: { version: 'desc' },
-            include: {
-                productVersion: true,
-                components: {
-                    include: {
-                        componentVersion: {
-                            include: {
-                                product: true,
-                            },
-                        },
-                    },
-                },
-                operations: true,
-            },
-        });
-
-        return versions;
-    }
-
-    /**
-     * Get active version of a BOM
+     * Get active version of a BOM with fully resolved components and operations
      */
     async getActiveBOMVersion(bomId: string) {
-        const version = await db.bOMVersion.findFirst({
-            where: {
-                bomId,
-                status: ItemStatus.ACTIVE,
-                isCurrent: true,
-            },
-            include: {
-                productVersion: true,
+        const version = await db.query.bomVersions.findFirst({
+            where: and(
+                eq(schema.bomVersions.bomId, bomId),
+                eq(schema.bomVersions.status, 'ACTIVE'),
+                eq(schema.bomVersions.isCurrent, true)
+            ),
+            with: {
                 components: {
-                    include: {
+                    with: {
                         componentVersion: {
-                            include: {
+                            with: {
                                 product: true,
                             },
                         },
@@ -190,36 +185,135 @@ export class BOMService {
             throw new Error('No active version found for this BOM');
         }
 
-        return version;
+        return this.resolveBOMVersionComponents(version);
     }
 
     /**
-     * Get components for a BOM version
+     * Get specific version by ID
      */
-    async getBOMComponents(bomVersionId: string) {
-        const components = await db.bOMComponent.findMany({
-            where: { bomVersionId },
-            include: {
-                componentVersion: {
-                    include: {
-                        product: true,
+    async getBOMVersionById(versionId: string, userRole?: string) {
+        if (userRole === 'OPERATIONS_USER') {
+            // Confirm the requested version is current active
+            const ver = await db.query.bomVersions.findFirst({
+                where: and(
+                    eq(schema.bomVersions.id, versionId),
+                    eq(schema.bomVersions.status, 'ACTIVE'),
+                    eq(schema.bomVersions.isCurrent, true)
+                ),
+                with: {
+                    components: {
+                        with: {
+                            componentVersion: {
+                                with: {
+                                    product: true,
+                                },
+                            },
+                        },
+                    },
+                    operations: true,
+                },
+            });
+
+            if (!ver) {
+                const error: any = new Error('Forbidden: Operations users cannot view non-active or archived versions');
+                error.statusCode = 403;
+                throw error;
+            }
+
+            return this.resolveBOMVersionComponents(ver);
+        }
+
+        const version = await db.query.bomVersions.findFirst({
+            where: eq(schema.bomVersions.id, versionId),
+            with: {
+                components: {
+                    with: {
+                        componentVersion: {
+                            with: {
+                                product: true,
+                            },
+                        },
                     },
                 },
+                operations: true,
             },
         });
 
-        return components;
+        if (!version) {
+            throw new Error('BOM version not found');
+        }
+
+        return this.resolveBOMVersionComponents(version);
     }
 
     /**
-     * Get operations for a BOM version
+     * Get versions list for a BOM
      */
-    async getBOMOperations(bomVersionId: string) {
-        const operations = await db.bOMOperation.findMany({
-            where: { bomVersionId },
+    async getBOMVersions(bomId: string, userRole?: string) {
+        if (userRole === 'OPERATIONS_USER') {
+            const error: any = new Error('Forbidden: Operations users cannot view version history');
+            error.statusCode = 403;
+            throw error;
+        }
+
+        const versions = await db.query.bomVersions.findMany({
+            where: eq(schema.bomVersions.bomId, bomId),
+            orderBy: [desc(schema.bomVersions.version)],
+            with: {
+                components: true,
+                operations: true,
+            },
         });
 
-        return operations;
+        return versions;
+    }
+
+    /**
+     * Dynamically resolve component product versions so active BOM view always references
+     * the current active version of component products if they've been updated
+     */
+    private async resolveBOMComponentVersions(bom: any, isOperationsUser: boolean) {
+        if (!bom || !bom.versions) return bom;
+        bom.versions = await Promise.all(
+            bom.versions.map((v: any) => this.resolveBOMVersionComponents(v))
+        );
+        return bom;
+    }
+
+    private async resolveBOMVersionComponents(version: any) {
+        if (!version || !version.components) return version;
+
+        const resolvedComponents = await Promise.all(
+            version.components.map(async (comp: any) => {
+                if (comp.componentVersion && comp.componentVersion.status === 'ARCHIVED') {
+                    // Find active current version for the same component product
+                    const activeCompVersion = await db.query.productVersions.findFirst({
+                        where: and(
+                            eq(schema.productVersions.productId, comp.componentVersion.productId),
+                            eq(schema.productVersions.status, 'ACTIVE'),
+                            eq(schema.productVersions.isCurrent, true)
+                        ),
+                        with: {
+                            product: true,
+                        },
+                    });
+
+                    if (activeCompVersion) {
+                        return {
+                            ...comp,
+                            componentVersionId: activeCompVersion.id,
+                            componentVersion: activeCompVersion,
+                        };
+                    }
+                }
+                return comp;
+            })
+        );
+
+        return {
+            ...version,
+            components: resolvedComponents,
+        };
     }
 }
 

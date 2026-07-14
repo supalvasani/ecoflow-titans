@@ -13,8 +13,8 @@ import reportRoutes from './src/routes/reportRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
 import auditRoutes from './src/routes/auditRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
+import operationsRoutes from './src/routes/operationsRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
-import { db } from './src/libs/prisma.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,14 +44,18 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/operations', operationsRoutes);
 
-// Simple Connection Test Route
+import { db } from './src/db/index.js';
+import { sql } from 'drizzle-orm';
+
+// Connection Test Route
 app.get('/test-db', async (req: express.Request, res: express.Response) => {
   try {
-    await db.$connect();
-    res.json({ status: "Connected to PostgreSQL via Prisma!" });
-  } catch (error) {
-    res.status(500).json({ status: "Connection failed", error });
+    await db.execute(sql`SELECT 1`);
+    res.json({ status: "Connected to PostgreSQL via Drizzle ORM!" });
+  } catch (error: any) {
+    res.status(500).json({ status: "Connection failed", error: error.message });
   }
 });
 

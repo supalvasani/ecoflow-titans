@@ -142,9 +142,13 @@ export const getProductById = async (req: AuthRequest, res: Response) => {
 export const getProductVersions = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const versions = await productService.getProductVersions(id as string);
+        const userRole = req.user!.role;
+        const versions = await productService.getProductVersions(id as string, userRole);
         res.json({ versions });
     } catch (error: any) {
+        if (error.statusCode === 403) {
+            return res.status(403).json({ error: error.message });
+        }
         console.error('Get product versions error:', error);
         res.status(500).json({ error: 'Failed to fetch product versions' });
     }

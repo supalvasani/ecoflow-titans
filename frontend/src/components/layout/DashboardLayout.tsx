@@ -24,6 +24,38 @@ const EcoFlowLogo = ({ className = "" }: { className?: string }) => (
     </svg>
 );
 
+interface NavLinkProps {
+    to: string;
+    icon: any;
+    label: string;
+    currentPath: string;
+    collapsed: boolean;
+}
+
+const SidebarNavLink = ({ to, icon: Icon, label, currentPath, collapsed }: NavLinkProps) => {
+    const isActive = currentPath === to;
+    return (
+        <Link
+            to={to}
+            className={`flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group relative ${isActive
+                ? 'bg-primary-soft text-primary font-semibold shadow-sm'
+                : 'text-gray-700 hover:text-primary hover:bg-accent'
+                }`}
+            title={collapsed ? label : undefined}
+        >
+            <Icon className={`h-4 w-4 flex-shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+            <span className={`truncate transition-all duration-300 ${collapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+                {label}
+            </span>
+            {collapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                    {label}
+                </div>
+            )}
+        </Link>
+    );
+};
+
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const { user, logout } = useAuth();
     const location = useLocation();
@@ -46,29 +78,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }, []);
 
     if (!user) return null;
-
-    const isActive = (path: string) => location.pathname === path;
-
-    const NavLink = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => (
-        <Link
-            to={to}
-            className={`flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group relative ${isActive(to)
-                ? 'bg-primary-soft text-primary font-semibold shadow-sm'
-                : 'text-gray-700 hover:text-primary hover:bg-accent'
-                }`}
-            title={isSidebarCollapsed ? label : undefined}
-        >
-            <Icon className={`h-4 w-4 flex-shrink-0 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
-            <span className={`truncate transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
-                {label}
-            </span>
-            {isSidebarCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                    {label}
-                </div>
-            )}
-        </Link>
-    );
 
     const getDashboardLink = () => {
         switch (user.role) {
@@ -139,27 +148,27 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                             </button>
                         </div>
 
-                        <NavLink to={getDashboardLink()} icon={LayoutDashboard} label="Dashboard" />
+                        <SidebarNavLink to={getDashboardLink()} icon={LayoutDashboard} label="Dashboard" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
 
                         {/* Information Architecture: Everyone sees Products */}
-                        <NavLink to="/products" icon={Package} label="Products" />
+                        <SidebarNavLink to="/products" icon={Package} label="Products" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
 
                         {/* Engineering & Admin Links */}
                         {(user.role === Role.ENGINEERING_USER || user.role === Role.ADMIN) && (
                             <>
-                                <NavLink to="/ecos" icon={FileText} label="ECOs" />
-                                <NavLink to="/boms" icon={Package} label="BOMs" />
+                                <SidebarNavLink to="/ecos" icon={FileText} label="ECOs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                                <SidebarNavLink to="/boms" icon={Package} label="BOMs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
                             </>
                         )}
 
                         {/* Operations User - BOMs (Read-Only) */}
                         {user.role === Role.OPERATIONS_USER && (
-                            <NavLink to="/boms" icon={Package} label="BOMs (Active)" />
+                            <SidebarNavLink to="/boms" icon={Package} label="BOMs (Active)" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
                         )}
 
                         {/* Approver Links - Only show if not admin */}
                         {user.role === Role.APPROVER && (
-                            <NavLink to="/ecos" icon={FileText} label="Pending Approvals" />
+                            <SidebarNavLink to="/ecos" icon={FileText} label="Pending Approvals" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
                         )}
 
                         {/* Operations Links - Removed production and inventory */}
@@ -173,8 +182,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                         <div className="h-px bg-border mx-3" />
                                     </div>
                                 )}
-                                <NavLink to="/reports" icon={BarChart3} label="Reports" />
-                                <NavLink to="/audit" icon={History} label="Audit Logs" />
+                                <SidebarNavLink to="/reports" icon={BarChart3} label="Reports" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                                <SidebarNavLink to="/audit" icon={History} label="Audit Logs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
                             </>
                         )}
 
@@ -191,8 +200,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                         </div>
                                     </>
                                 )}
-                                <NavLink to="/admin/users" icon={Users} label="Users" />
-                                <NavLink to="/settings" icon={Settings} label="Settings" />
+                                <SidebarNavLink to="/admin/users" icon={Users} label="Users" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                                <SidebarNavLink to="/settings" icon={Settings} label="Settings" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
                             </>
                         )}
                     </nav>

@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ecoService } from '../../services/ecoService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { FileText, Download } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
@@ -16,6 +16,7 @@ export default function ReportsPage() {
         const fetchStats = async () => {
             if (!token) return;
             try {
+                setLoading(true);
                 const data = await ecoService.getECOStatistics(token);
                 setStats(data.statistics);
             } catch (error) {
@@ -41,6 +42,14 @@ export default function ReportsPage() {
         document.body.appendChild(link);
         link.click();
     };
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="p-8 text-center text-muted-foreground">Loading analytics...</div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -103,7 +112,7 @@ export default function ReportsPage() {
                                         fill="#8884d8"
                                         dataKey="count"
                                     >
-                                        {stats.map((entry, index) => (
+                                        {stats.map((_, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
