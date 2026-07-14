@@ -20,8 +20,19 @@ class ECOService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'API request failed');
+            let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
+            try {
+                const error = await response.json();
+                errorMessage = error.error || error.message || errorMessage;
+            } catch {
+                try {
+                    const text = await response.text();
+                    if (text) errorMessage = text;
+                } catch {
+                    // Fallback to initial HTTP status error message
+                }
+            }
+            throw new Error(errorMessage);
         }
 
         return response.json();

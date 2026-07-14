@@ -771,14 +771,58 @@ export class ECOService {
     private async hydrateECO(eco: any) {
         if (!eco) return null;
 
-        const productDraft = eco.type === 'PRODUCT'
-            ? {
-                productId: eco.draftProductId,
-                name: eco.draftName,
-                salePrice: eco.draftSalePrice ? parseFloat(eco.draftSalePrice) : undefined,
-                costPrice: eco.draftCostPrice ? parseFloat(eco.draftCostPrice) : undefined,
+        let productDraft = null;
+        if (eco.type === 'PRODUCT') {
+            const productId = eco.draftProductId;
+            let product: any = null;
+            let activeVersion: any = null;
+
+            if (productId) {
+                product = await db.query.products.findFirst({
+                    where: eq(schema.products.id, productId),
+                });
             }
-            : null;
+
+            if (eco.productVersionId) {
+                activeVersion = await db.query.productVersions.findFirst({
+                    where: eq(schema.productVersions.id, eco.productVersionId),
+                });
+            } else if (productId) {
+                activeVersion = await db.query.productVersions.findFirst({
+                    where: and(
+                        eq(schema.productVersions.productId, productId),
+                        eq(schema.productVersions.status, 'ACTIVE')
+                    ),
+                });
+            }
+
+            const currentName = product?.name || '';
+            const currentSalePrice = activeVersion?.salePrice ? parseFloat(activeVersion.salePrice) : 0;
+            const currentCostPrice = activeVersion?.costPrice ? parseFloat(activeVersion.costPrice) : 0;
+
+            const name = eco.draftName ?? currentName;
+            const salePrice = eco.draftSalePrice !== null && eco.draftSalePrice !== undefined ? parseFloat(eco.draftSalePrice) : currentSalePrice;
+            const costPrice = eco.draftCostPrice !== null && eco.draftCostPrice !== undefined ? parseFloat(eco.draftCostPrice) : currentCostPrice;
+
+            productDraft = {
+                productId: productId || activeVersion?.productId,
+                name,
+                salePrice,
+                costPrice,
+                product: (product || activeVersion) ? {
+                    id: product?.id || activeVersion?.productId,
+                    name: currentName,
+                    versions: activeVersion ? [{
+                        id: activeVersion.id,
+                        version: activeVersion.version,
+                        salePrice: activeVersion.salePrice,
+                        costPrice: activeVersion.costPrice,
+                        status: activeVersion.status,
+                        isCurrent: activeVersion.isCurrent,
+                    }] : [],
+                } : null,
+            };
+        }
 
         const bomDraft = (eco.type === 'BOM' || eco.type === 'BOM_CHANGE')
             ? {

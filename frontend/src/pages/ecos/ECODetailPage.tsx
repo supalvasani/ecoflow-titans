@@ -128,8 +128,8 @@ export default function ECODetailPage() {
     const isApprover = user?.role === Role.APPROVER || user?.role === Role.ADMIN;
     const isEngineerOrAdmin = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
-    // Actions Logic - Engineers can only Save Draft or Submit for Review
-    const canEdit = (stage === 'DRAFT' || stage === 'WIP') && isEngineerOrAdmin;
+    // Actions Logic - Engineers can Save Draft or Submit for Review
+    const canEdit = (stage === 'DRAFT' || stage === 'WIP' || stage === 'UNDER REVIEW') && isEngineerOrAdmin;
     const canSubmit = (stage === 'DRAFT' || stage === 'WIP') && isEngineerOrAdmin;
 
     // Check if approval is required (either by stage or by admin flag)
@@ -178,7 +178,7 @@ export default function ECODetailPage() {
                 </div>
 
                 {/* Lifecycle Stepper */}
-                <LifecycleStepper currentStage={eco.stage.name} stages={['New', 'Draft', 'Review', 'Approved', 'Applied']} />
+                <LifecycleStepper currentStage={eco.stage.name} stages={['New', 'Draft', 'Under Review', 'Approved', 'Applied']} />
 
                 {/* Title & Stage */}
                 <div className="space-y-2">

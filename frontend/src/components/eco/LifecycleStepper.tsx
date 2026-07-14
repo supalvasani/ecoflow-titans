@@ -1,7 +1,19 @@
 import { Check, Circle, Clock } from 'lucide-react';
 
 export function LifecycleStepper({ currentStage, stages }: { currentStage: string, stages: string[] }) {
-    const currentIndex = stages.indexOf(currentStage);
+    const normalizeStage = (s: string) => {
+        const lower = s.toLowerCase().trim();
+        if (lower.includes('review')) return 'review';
+        if (lower.includes('draft') || lower.includes('wip')) return 'draft';
+        if (lower.includes('new')) return 'new';
+        if (lower.includes('approve')) return 'approved';
+        if (lower.includes('implement') || lower.includes('apply')) return 'applied';
+        return lower;
+    };
+
+    const normalizedCurrent = normalizeStage(currentStage);
+    const normalizedStages = stages.map(normalizeStage);
+    const currentIndex = normalizedStages.indexOf(normalizedCurrent);
 
     return (
         <div className="w-full py-4">

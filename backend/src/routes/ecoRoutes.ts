@@ -22,6 +22,7 @@ const router = Router();
 
 // Primary Unified ECO Creation Path
 router.post('/', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createECO);
+router.post('/create', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createECO);
 
 // Backward Compatibility Wrappers (Product & BOM typed creation)
 router.post('/product', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createProductECO);
@@ -35,6 +36,7 @@ router.get('/:id', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'AD
 // Draft Editing (Draft Stage Only)
 router.patch('/:id/draft/product', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), updateProductDraft);
 router.patch('/:id/draft/bom', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), updateBOMDraft);
+router.post('/:id/draft/attachment', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), addDraftAttachment);
 router.post('/:id/draft/attachments', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), addDraftAttachment);
 
 // Workflow Transitions

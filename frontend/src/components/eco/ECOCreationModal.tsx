@@ -35,6 +35,9 @@ export function ECOCreationModal({
     const [ecoType, setEcoType] = useState<ECOType>(prefilledType || 'PRODUCT');
     const [selectedProductId, setSelectedProductId] = useState(prefilledProductId || '');
     const [selectedBOMId, setSelectedBOMId] = useState(prefilledBOMId || '');
+    const [proposedName, setProposedName] = useState('');
+    const [proposedSalePrice, setProposedSalePrice] = useState('');
+    const [proposedCostPrice, setProposedCostPrice] = useState('');
     const [effectiveDate, setEffectiveDate] = useState('');
     const [versionUpdate, setVersionUpdate] = useState(true);
 
@@ -127,7 +130,17 @@ export function ECOCreationModal({
             let ecoId: string;
 
             if (ecoType === 'PRODUCT') {
-                ecoId = await ecoService.createProductECO(token, selectedProductId, title);
+                const res = await ecoService.createECO(token, {
+                    title,
+                    type: 'PRODUCT',
+                    productId: selectedProductId,
+                    initialChanges: {
+                        name: proposedName,
+                        salePrice: proposedSalePrice ? parseFloat(proposedSalePrice) : undefined,
+                        costPrice: proposedCostPrice ? parseFloat(proposedCostPrice) : undefined,
+                    }
+                });
+                ecoId = res.eco.id;
             } else {
                 ecoId = await ecoService.createBOMECO(token, selectedBOMId, title);
             }
@@ -247,8 +260,20 @@ export function ECOCreationModal({
                                     id="product"
                                     value={selectedProductId}
                                     onChange={(e) => {
-                                        setSelectedProductId(e.target.value);
-                                        setSelectedBOMId(''); // Reset BOM selection
+                                        const pid = e.target.value;
+                                        setSelectedProductId(pid);
+                                        setSelectedBOMId('');
+                                        const p = products.find(prod => prod.id === pid);
+                                        if (p) {
+                                            const activeVer = p.versions?.find(v => v.status === 'ACTIVE' || v.isCurrent);
+                                            setProposedName(p.name || '');
+                                            setProposedSalePrice(activeVer?.salePrice ? String(activeVer.salePrice) : '');
+                                            setProposedCostPrice(activeVer?.costPrice ? String(activeVer.costPrice) : '');
+                                        } else {
+                                            setProposedName('');
+                                            setProposedSalePrice('');
+                                            setProposedCostPrice('');
+                                        }
                                     }}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     disabled={submitting || !!prefilledProductId}
@@ -263,6 +288,49 @@ export function ECOCreationModal({
                                 </select>
                             )}
                         </div>
+
+                        {/* Proposed Product Changes Section */}
+                        {ecoType === 'PRODUCT' && selectedProductId && (
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-3">
+                                <h4 className="font-semibold text-sm text-blue-900">Proposed Product Changes</h4>
+                                <div className="space-y-2">
+                                    <Label htmlFor="proposedName" className="text-xs">Proposed Name</Label>
+                                    <Input
+                                        id="proposedName"
+                                        value={proposedName}
+                                        onChange={(e) => setProposedName(e.target.value)}
+                                        placeholder="Enter proposed product name..."
+                                        disabled={submitting}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="proposedSalePrice" className="text-xs">Proposed Sale Price ($)</Label>
+                                        <Input
+                                            id="proposedSalePrice"
+                                            type="number"
+                                            step="0.01"
+                                            value={proposedSalePrice}
+                                            onChange={(e) => setProposedSalePrice(e.target.value)}
+                                            placeholder="0.00"
+                                            disabled={submitting}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="proposedCostPrice" className="text-xs">Proposed Cost Price ($)</Label>
+                                        <Input
+                                            id="proposedCostPrice"
+                                            type="number"
+                                            step="0.01"
+                                            value={proposedCostPrice}
+                                            onChange={(e) => setProposedCostPrice(e.target.value)}
+                                            placeholder="0.00"
+                                            disabled={submitting}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* BOM (only for BOM type) */}
                         {ecoType === 'BOM' && (
