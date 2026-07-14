@@ -1,5 +1,6 @@
-import { db } from '../libs/prisma.js';
-import { hashPass, comparePass, signToken } from '../libs/auth.js';
+import { db, schema } from '../db/index.js';
+import { eq, asc } from 'drizzle-orm';
+import { comparePass, signToken } from '../libs/auth.js';
 
 export class AuthService {
     /**
@@ -10,19 +11,16 @@ export class AuthService {
             throw new Error('Email and password are required');
         }
 
-        // Find user
-        const user = await db.user.findUnique({ where: { email } });
+        const user = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
         if (!user) {
             throw new Error('Invalid credentials');
         }
 
-        // Verify password
         const isValid = await comparePass(password, user.password);
         if (!isValid) {
             throw new Error('Invalid credentials');
         }
 
-        // Generate token
         const token = signToken({ userId: user.id, role: user.role });
 
         return {
@@ -40,9 +38,9 @@ export class AuthService {
      * Get user by ID
      */
     async getUserById(userId: string) {
-        const user = await db.user.findUnique({
-            where: { id: userId },
-            select: {
+        const user = await db.query.users.findFirst({
+            where: eq(schema.users.id, userId),
+            columns: {
                 id: true,
                 email: true,
                 name: true,
@@ -59,27 +57,24 @@ export class AuthService {
     }
 
     /**
-     * Get all users (lightweight)
+     * Get all users
      */
     async getAllUsers() {
-        return db.user.findMany({
-            select: {
+        return db.query.users.findMany({
+            columns: {
                 id: true,
                 email: true,
                 name: true,
                 role: true,
             },
-            orderBy: { name: 'asc' },
+            orderBy: [asc(schema.users.name)],
         });
     }
 
     /**
-     * Logout (stateless JWT - handled client-side)
+     * Logout
      */
     async logout() {
-        // Since JWT is stateless, logout is primarily handled on the client
-        // by removing the token. This method can be extended for token blacklisting
-        // or other server-side logout logic if needed.
         return { message: 'Logout successful' };
     }
 }

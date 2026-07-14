@@ -1,5 +1,6 @@
-import { db } from '../libs/prisma.js';
-import { ItemStatus } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, and, desc } from 'drizzle-orm';
+import crypto from 'node:crypto';
 
 export class ProductService {
     /**
@@ -10,82 +11,99 @@ export class ProductService {
             throw new Error('Name, sale price, and cost price are required');
         }
 
-        // Create product with initial version
-        const product = await db.product.create({
-            data: {
-                name,
-                versions: {
-                    create: {
-                        version: 1,
-                        salePrice,
-                        costPrice,
-                        status: ItemStatus.ACTIVE,
-                        isCurrent: true,
-                    },
-                },
-            },
-            include: {
-                versions: true,
-            },
-        });
+        const productId = crypto.randomUUID();
+        const versionId = crypto.randomUUID();
+        const auditId = crypto.randomUUID();
 
-        // Create audit log
-        await db.auditLog.create({
-            data: {
+        return await db.transaction(async (tx) => {
+            await tx.insert(schema.products).values({
+                id: productId,
+                name,
+            });
+
+            await tx.insert(schema.productVersions).values({
+                id: versionId,
+                productId,
+                version: 1,
+                salePrice: salePrice.toString(),
+                costPrice: costPrice.toString(),
+                status: 'ACTIVE',
+                isCurrent: true,
+            });
+
+            await tx.insert(schema.auditLogs).values({
+                id: auditId,
                 entity: 'Product',
-                entityId: product.id,
+                entityId: productId,
                 userId,
                 action: 'CREATED',
                 oldValue: null,
                 newValue: `Product "${name}" created with version 1`,
-            },
-        });
+            });
 
-        return product;
+            const product = await tx.query.products.findFirst({
+                where: eq(schema.products.id, productId),
+                with: {
+                    versions: true,
+                },
+            });
+
+            return product;
+        });
     }
 
     /**
-     * Get all products with their active versions
-     * Operations users only see ACTIVE versions
+     * Get all products with their active/specified versions
+     * Operations users see strictly ACTIVE versions
      */
     async getProducts(userRole: string, includeArchived: boolean = false) {
         const isOperationsUser = userRole === 'OPERATIONS_USER';
 
-        const products = await db.product.findMany({
-            include: {
+        const products = await db.query.products.findMany({
+            with: {
                 versions: {
-                    where: isOperationsUser
-                        ? { status: ItemStatus.ACTIVE }
-                        : includeArchived
-                            ? {}
-                            : { status: ItemStatus.ACTIVE },
-                    orderBy: { version: 'desc' },
+                    where: isOperationsUser || !includeArchived
+                        ? and(eq(schema.productVersions.status, 'ACTIVE'), eq(schema.productVersions.isCurrent, true))
+                        : undefined,
+                    orderBy: [desc(schema.productVersions.version)],
+                    with: {
+                        attachments: true,
+                    },
                 },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [desc(schema.products.createdAt)],
         });
+
+        // Filter out products with no active versions for Operations user
+        if (isOperationsUser) {
+            return products.filter(p => p.versions && p.versions.length > 0);
+        }
 
         return products;
     }
 
     /**
-     * Get product by ID with version history
+     * Get product by ID with version details
      */
     async getProductById(productId: string, userRole: string, includeVersions: boolean = true) {
         const isOperationsUser = userRole === 'OPERATIONS_USER';
 
-        const product = await db.product.findUnique({
-            where: { id: productId },
-            include: {
-                versions: includeVersions
+        const product = await db.query.products.findFirst({
+            where: eq(schema.products.id, productId),
+            with: {
+                ...(includeVersions
                     ? {
-                        where: isOperationsUser ? { status: ItemStatus.ACTIVE } : {},
-                        orderBy: { version: 'desc' },
-                        include: {
-                            attachments: true,
+                        versions: {
+                            where: isOperationsUser
+                                ? and(eq(schema.productVersions.status, 'ACTIVE'), eq(schema.productVersions.isCurrent, true))
+                                : undefined,
+                            orderBy: [desc(schema.productVersions.version)],
+                            with: {
+                                attachments: true,
+                            },
                         },
                     }
-                    : false,
+                    : {}),
             },
         });
 
@@ -93,17 +111,28 @@ export class ProductService {
             throw new Error('Product not found');
         }
 
+        const versions = (product as any).versions;
+        if (isOperationsUser && (!versions || versions.length === 0)) {
+            throw new Error('Product not found or no active version available');
+        }
+
         return product;
     }
 
     /**
-     * Get all versions of a product
+     * Get all versions of a product (Forbidden for OPERATIONS_USER)
      */
-    async getProductVersions(productId: string) {
-        const versions = await db.productVersion.findMany({
-            where: { productId },
-            orderBy: { version: 'desc' },
-            include: {
+    async getProductVersions(productId: string, userRole?: string) {
+        if (userRole === 'OPERATIONS_USER') {
+            const error: any = new Error('Forbidden: Operations users cannot view version history');
+            error.statusCode = 403;
+            throw error;
+        }
+
+        const versions = await db.query.productVersions.findMany({
+            where: eq(schema.productVersions.productId, productId),
+            orderBy: [desc(schema.productVersions.version)],
+            with: {
                 attachments: true,
             },
         });
@@ -115,13 +144,13 @@ export class ProductService {
      * Get active version of a product
      */
     async getActiveProductVersion(productId: string) {
-        const version = await db.productVersion.findFirst({
-            where: {
-                productId,
-                status: ItemStatus.ACTIVE,
-                isCurrent: true,
-            },
-            include: {
+        const version = await db.query.productVersions.findFirst({
+            where: and(
+                eq(schema.productVersions.productId, productId),
+                eq(schema.productVersions.status, 'ACTIVE'),
+                eq(schema.productVersions.isCurrent, true)
+            ),
+            with: {
                 attachments: true,
             },
         });
@@ -134,12 +163,12 @@ export class ProductService {
     }
 
     /**
-     * Get attachments for a product version (READ-ONLY)
+     * Get attachments for a product version
      */
     async getAttachments(productVersionId: string) {
-        const attachments = await db.productAttachment.findMany({
-            where: { productVersionId },
-            orderBy: { createdAt: 'desc' },
+        const attachments = await db.query.productAttachments.findMany({
+            where: eq(schema.productAttachments.productVersionId, productVersionId),
+            orderBy: [desc(schema.productAttachments.createdAt)],
         });
 
         return attachments;

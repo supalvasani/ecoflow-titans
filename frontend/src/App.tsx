@@ -94,6 +94,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/products/new"
+            element={
+              <ProtectedRoute requiredRole={Role.ADMIN}>
+                <ProductCreatePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ECO Routes */}
           <Route

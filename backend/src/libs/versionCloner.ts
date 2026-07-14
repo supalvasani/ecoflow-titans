@@ -1,158 +1,166 @@
-import { db } from './prisma.js';
-import { ItemStatus } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, and } from 'drizzle-orm';
+import crypto from 'node:crypto';
 
 /**
- * Clone a product version with draft changes applied
- * This creates a new version, applies changes, and archives the old version
+ * Clone a product version with draft changes applied inside a transaction block
  */
 export async function cloneProductVersion(
+    tx: any,
     activeVersion: any,
     draft: any,
-    draftAttachments: any[]
+    draftAttachments: any[] = []
 ) {
-    // Get next version number
     const nextVersion = activeVersion.version + 1;
+    const newVersionId = crypto.randomUUID();
 
-    // Clone with changes from draft
-    const newVersion = await db.productVersion.create({
-        data: {
-            productId: activeVersion.productId,
-            version: nextVersion,
-            salePrice: draft?.salePrice ?? activeVersion.salePrice,
-            costPrice: draft?.costPrice ?? activeVersion.costPrice,
-            status: ItemStatus.ACTIVE,
-            isCurrent: true,
-        },
+    // 1. Archive current active version
+    await tx
+        .update(schema.productVersions)
+        .set({
+            status: 'ARCHIVED',
+            isCurrent: false,
+        })
+        .where(eq(schema.productVersions.id, activeVersion.id));
+
+    // 2. Create new ACTIVE version
+    await tx.insert(schema.productVersions).values({
+        id: newVersionId,
+        productId: activeVersion.productId,
+        version: nextVersion,
+        salePrice: (draft?.salePrice ?? activeVersion.salePrice).toString(),
+        costPrice: (draft?.costPrice ?? activeVersion.costPrice).toString(),
+        status: 'ACTIVE',
+        isCurrent: true,
     });
 
-    // Clone existing attachments
-    const existingAttachments = await db.productAttachment.findMany({
-        where: { productVersionId: activeVersion.id },
+    // 3. Clone existing attachments
+    const existingAttachments = await tx.query.productAttachments.findMany({
+        where: eq(schema.productAttachments.productVersionId, activeVersion.id),
     });
 
     for (const att of existingAttachments) {
-        // Skip if marked for deletion in draft
         const toDelete = draftAttachments.find(
-            d => d.filename === att.filename && d.action === 'DELETE'
+            (d: any) => d.filename === att.filename && d.action === 'DELETE'
         );
         if (toDelete) continue;
 
-        await db.productAttachment.create({
-            data: {
-                productVersionId: newVersion.id,
-                filename: att.filename,
-                url: att.url,
-            },
+        await tx.insert(schema.productAttachments).values({
+            id: crypto.randomUUID(),
+            productVersionId: newVersionId,
+            filename: att.filename,
+            url: att.url,
         });
     }
 
-    // Add new attachments from draft
+    // 4. Add new draft attachments
     for (const draftAtt of draftAttachments) {
         if (draftAtt.action === 'ADD') {
-            await db.productAttachment.create({
-                data: {
-                    productVersionId: newVersion.id,
-                    filename: draftAtt.filename,
-                    url: draftAtt.url,
-                },
+            await tx.insert(schema.productAttachments).values({
+                id: crypto.randomUUID(),
+                productVersionId: newVersionId,
+                filename: draftAtt.filename,
+                url: draftAtt.url,
             });
         }
     }
 
-    // Archive old version
-    await db.productVersion.update({
-        where: { id: activeVersion.id },
-        data: {
-            status: ItemStatus.ARCHIVED,
-            isCurrent: false,
-        },
+    const newVersion = await tx.query.productVersions.findFirst({
+        where: eq(schema.productVersions.id, newVersionId),
+        with: { attachments: true },
     });
 
     return newVersion;
 }
 
 /**
- * Update the CURRENT product version in-place (no version increment)
+ * Update existing active Product Version in-place (hotfix mode)
  */
 export async function updateCurrentProductVersion(
+    tx: any,
     activeVersion: any,
     draft: any,
-    draftAttachments: any[]
+    draftAttachments: any[] = []
 ) {
-    // Update active version directly
-    const updatedVersion = await db.productVersion.update({
-        where: { id: activeVersion.id },
-        data: {
-            salePrice: draft?.salePrice ?? activeVersion.salePrice,
-            costPrice: draft?.costPrice ?? activeVersion.costPrice,
-        },
-    });
+    await tx
+        .update(schema.productVersions)
+        .set({
+            salePrice: (draft?.salePrice ?? activeVersion.salePrice).toString(),
+            costPrice: (draft?.costPrice ?? activeVersion.costPrice).toString(),
+        })
+        .where(eq(schema.productVersions.id, activeVersion.id));
 
-    // Handle attachments (Add/Delete)
-    // First, handle deletions
-    const attachmentsToDelete = draftAttachments.filter(d => d.action === 'DELETE');
+    // Deletions
+    const attachmentsToDelete = draftAttachments.filter((d: any) => d.action === 'DELETE');
     for (const att of attachmentsToDelete) {
-        // Find attachment by filename for this version
-        const toDelete = await db.productAttachment.findFirst({
-            where: {
-                productVersionId: activeVersion.id,
-                filename: att.filename,
-            },
+        const toDelete = await tx.query.productAttachments.findFirst({
+            where: and(
+                eq(schema.productAttachments.productVersionId, activeVersion.id),
+                eq(schema.productAttachments.filename, att.filename)
+            ),
         });
-
         if (toDelete) {
-            await db.productAttachment.delete({ where: { id: toDelete.id } });
+            await tx.delete(schema.productAttachments).where(eq(schema.productAttachments.id, toDelete.id));
         }
     }
 
-    // Handle additions
-    const attachmentsToAdd = draftAttachments.filter(d => d.action === 'ADD');
+    // Additions
+    const attachmentsToAdd = draftAttachments.filter((d: any) => d.action === 'ADD');
     for (const att of attachmentsToAdd) {
-        await db.productAttachment.create({
-            data: {
-                productVersionId: activeVersion.id,
-                filename: att.filename,
-                url: att.url,
-            },
+        await tx.insert(schema.productAttachments).values({
+            id: crypto.randomUUID(),
+            productVersionId: activeVersion.id,
+            filename: att.filename,
+            url: att.url,
         });
     }
 
-    return updatedVersion;
+    const updated = await tx.query.productVersions.findFirst({
+        where: eq(schema.productVersions.id, activeVersion.id),
+        with: { attachments: true },
+    });
+
+    return updated;
 }
 
 /**
- * Clone a BOM version with draft changes applied
- * This creates a new version, applies component/operation changes, and archives the old version
+ * Clone a BOM version with draft changes applied inside a transaction block
  */
 export async function cloneBOMVersion(
+    tx: any,
     activeVersion: any,
     draft: any,
-    draftComponents: any[],
-    draftOperations: any[]
+    draftComponents: any[] = [],
+    draftOperations: any[] = []
 ) {
-    // Get next version number
     const nextVersion = activeVersion.version + 1;
+    const newVersionId = crypto.randomUUID();
 
-    // Clone BOM version
-    const newVersion = await db.bOMVersion.create({
-        data: {
-            bomId: activeVersion.bomId,
-            productVersionId: activeVersion.productVersionId,
-            version: nextVersion,
-            status: ItemStatus.ACTIVE,
-            isCurrent: true,
-        },
+    // 1. Archive current active BOM version
+    await tx
+        .update(schema.bomVersions)
+        .set({
+            status: 'ARCHIVED',
+            isCurrent: false,
+        })
+        .where(eq(schema.bomVersions.id, activeVersion.id));
+
+    // 2. Insert new ACTIVE BOM Version
+    await tx.insert(schema.bomVersions).values({
+        id: newVersionId,
+        bomId: activeVersion.bomId,
+        productVersionId: activeVersion.productVersionId,
+        version: nextVersion,
+        status: 'ACTIVE',
+        isCurrent: true,
     });
 
-    // Clone existing components
-    const existingComponents = await db.bOMComponent.findMany({
-        where: { bomVersionId: activeVersion.id },
+    // 3. Process components map
+    const existingComponents = await tx.query.bomComponents.findMany({
+        where: eq(schema.bomComponents.bomVersionId, activeVersion.id),
     });
 
-    // Track which components to keep/update
     const componentMap = new Map<string, { quantity: number; action: string }>();
-
-    // Start with existing components
     for (const comp of existingComponents) {
         componentMap.set(comp.componentVersionId, {
             quantity: comp.quantity,
@@ -160,43 +168,32 @@ export async function cloneBOMVersion(
         });
     }
 
-    // Apply draft changes
     for (const draftComp of draftComponents) {
         if (draftComp.action === 'DELETE') {
             componentMap.delete(draftComp.componentVersionId);
-        } else if (draftComp.action === 'UPDATE') {
+        } else if (draftComp.action === 'UPDATE' || draftComp.action === 'ADD') {
             componentMap.set(draftComp.componentVersionId, {
                 quantity: draftComp.quantity,
-                action: 'UPDATE',
-            });
-        } else if (draftComp.action === 'ADD') {
-            componentMap.set(draftComp.componentVersionId, {
-                quantity: draftComp.quantity,
-                action: 'ADD',
+                action: draftComp.action,
             });
         }
     }
 
-    // Create components for new version
     for (const [componentVersionId, { quantity }] of componentMap) {
-        await db.bOMComponent.create({
-            data: {
-                bomVersionId: newVersion.id,
-                componentVersionId,
-                quantity,
-            },
+        await tx.insert(schema.bomComponents).values({
+            id: crypto.randomUUID(),
+            bomVersionId: newVersionId,
+            componentVersionId,
+            quantity,
         });
     }
 
-    // Clone existing operations
-    const existingOperations = await db.bOMOperation.findMany({
-        where: { bomVersionId: activeVersion.id },
+    // 4. Process operations map
+    const existingOperations = await tx.query.bomOperations.findMany({
+        where: eq(schema.bomOperations.bomVersionId, activeVersion.id),
     });
 
-    // Track operations
     const operationMap = new Map<string, { name: string; timeMinutes: number; workCenter: string }>();
-
-    // Start with existing operations (use name as key)
     for (const op of existingOperations) {
         operationMap.set(op.name, {
             name: op.name,
@@ -205,7 +202,6 @@ export async function cloneBOMVersion(
         });
     }
 
-    // Apply draft operation changes
     for (const draftOp of draftOperations) {
         if (draftOp.action === 'DELETE') {
             operationMap.delete(draftOp.name);
@@ -218,24 +214,21 @@ export async function cloneBOMVersion(
         }
     }
 
-    // Create operations for new version
     for (const op of operationMap.values()) {
-        await db.bOMOperation.create({
-            data: {
-                bomVersionId: newVersion.id,
-                name: op.name,
-                timeMinutes: op.timeMinutes,
-                workCenter: op.workCenter,
-            },
+        await tx.insert(schema.bomOperations).values({
+            id: crypto.randomUUID(),
+            bomVersionId: newVersionId,
+            name: op.name,
+            timeMinutes: op.timeMinutes,
+            workCenter: op.workCenter,
         });
     }
 
-    // Archive old version
-    await db.bOMVersion.update({
-        where: { id: activeVersion.id },
-        data: {
-            status: ItemStatus.ARCHIVED,
-            isCurrent: false,
+    const newVersion = await tx.query.bomVersions.findFirst({
+        where: eq(schema.bomVersions.id, newVersionId),
+        with: {
+            components: true,
+            operations: true,
         },
     });
 
@@ -243,74 +236,88 @@ export async function cloneBOMVersion(
 }
 
 /**
- * Update the CURRENT BOM version in-place (no version increment)
+ * Update existing active BOM version in-place (hotfix mode)
  */
 export async function updateCurrentBOMVersion(
+    tx: any,
     activeVersion: any,
     draft: any,
-    draftComponents: any[],
-    draftOperations: any[]
+    draftComponents: any[] = [],
+    draftOperations: any[] = []
 ) {
-    // 1. Handle Components
+    // 1. Components
     for (const draftComp of draftComponents) {
         if (draftComp.action === 'DELETE') {
-            await db.bOMComponent.deleteMany({
-                where: {
-                    bomVersionId: activeVersion.id,
-                    componentVersionId: draftComp.componentVersionId,
-                },
-            });
+            await tx
+                .delete(schema.bomComponents)
+                .where(
+                    and(
+                        eq(schema.bomComponents.bomVersionId, activeVersion.id),
+                        eq(schema.bomComponents.componentVersionId, draftComp.componentVersionId)
+                    )
+                );
         } else if (draftComp.action === 'UPDATE') {
-            await db.bOMComponent.updateMany({
-                where: {
-                    bomVersionId: activeVersion.id,
-                    componentVersionId: draftComp.componentVersionId,
-                },
-                data: { quantity: draftComp.quantity },
-            });
+            await tx
+                .update(schema.bomComponents)
+                .set({ quantity: draftComp.quantity })
+                .where(
+                    and(
+                        eq(schema.bomComponents.bomVersionId, activeVersion.id),
+                        eq(schema.bomComponents.componentVersionId, draftComp.componentVersionId)
+                    )
+                );
         } else if (draftComp.action === 'ADD') {
-            await db.bOMComponent.create({
-                data: {
-                    bomVersionId: activeVersion.id,
-                    componentVersionId: draftComp.componentVersionId,
-                    quantity: draftComp.quantity,
-                },
+            await tx.insert(schema.bomComponents).values({
+                id: crypto.randomUUID(),
+                bomVersionId: activeVersion.id,
+                componentVersionId: draftComp.componentVersionId,
+                quantity: draftComp.quantity,
             });
         }
     }
 
-    // 2. Handle Operations
-    // Note: Operations are tricky because they don't have stable IDs in the draft, usually matched by name
+    // 2. Operations
     for (const draftOp of draftOperations) {
         if (draftOp.action === 'DELETE') {
-            await db.bOMOperation.deleteMany({
-                where: {
-                    bomVersionId: activeVersion.id,
-                    name: draftOp.name,
-                },
-            });
+            await tx
+                .delete(schema.bomOperations)
+                .where(
+                    and(
+                        eq(schema.bomOperations.bomVersionId, activeVersion.id),
+                        eq(schema.bomOperations.name, draftOp.name)
+                    )
+                );
         } else if (draftOp.action === 'UPDATE') {
-            await db.bOMOperation.updateMany({
-                where: {
-                    bomVersionId: activeVersion.id,
-                    name: draftOp.name,
-                },
-                data: {
+            await tx
+                .update(schema.bomOperations)
+                .set({
                     timeMinutes: draftOp.timeMinutes,
                     workCenter: draftOp.workCenter,
-                },
-            });
+                })
+                .where(
+                    and(
+                        eq(schema.bomOperations.bomVersionId, activeVersion.id),
+                        eq(schema.bomOperations.name, draftOp.name)
+                    )
+                );
         } else if (draftOp.action === 'ADD') {
-            await db.bOMOperation.create({
-                data: {
-                    bomVersionId: activeVersion.id,
-                    name: draftOp.name,
-                    timeMinutes: draftOp.timeMinutes,
-                    workCenter: draftOp.workCenter,
-                },
+            await tx.insert(schema.bomOperations).values({
+                id: crypto.randomUUID(),
+                bomVersionId: activeVersion.id,
+                name: draftOp.name,
+                timeMinutes: draftOp.timeMinutes,
+                workCenter: draftOp.workCenter,
             });
         }
     }
 
-    return activeVersion;
+    const updated = await tx.query.bomVersions.findFirst({
+        where: eq(schema.bomVersions.id, activeVersion.id),
+        with: {
+            components: true,
+            operations: true,
+        },
+    });
+
+    return updated;
 }

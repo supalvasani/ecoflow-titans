@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { ecoService } from '../service/ecoService.js';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
-import { ECOType } from '@prisma/client';
+import { ECOType } from '../db/schema.js';
 
 /**
  * @swagger
@@ -521,6 +521,9 @@ export const rejectECO = async (req: AuthRequest, res: Response) => {
             eco,
         });
     } catch (error: any) {
+        if (error.message.includes('Only approvers') || error.message.includes('Forbidden') || error.message.includes('Access denied')) {
+            return res.status(403).json({ error: error.message });
+        }
         console.error('Reject ECO error:', error);
         res.status(400).json({ error: error.message || 'Failed to reject ECO' });
     }

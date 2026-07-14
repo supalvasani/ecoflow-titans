@@ -1,17 +1,14 @@
-import { db } from './prisma.js';
-import { ItemStatus } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, asc } from 'drizzle-orm';
 
 /**
  * Validate that ECO can be edited (must be in the first/draft stage)
  */
 export async function validateECOEdit(ecoStageId: string) {
-    const stage = await db.eCOStage.findUnique({ where: { id: ecoStageId } });
+    const stage = await db.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, ecoStageId) });
     if (!stage) throw new Error('Stage not found');
 
-    // Assuming sequence 1 is always the Draft/Editable stage
-    // Or we can add an isEditable boolean to the schema later.
-    // For now, let's assume lowest sequence is editable.
-    const firstStage = await db.eCOStage.findFirst({ orderBy: { sequence: 'asc' } });
+    const firstStage = await db.query.ecoStages.findFirst({ orderBy: [asc(schema.ecoStages.sequence)] });
 
     if (stage.id !== firstStage?.id) {
         throw new Error('ECO cannot be edited after leaving the draft stage.');
@@ -22,7 +19,7 @@ export async function validateECOEdit(ecoStageId: string) {
  * Validate that user can approve ECO
  */
 export async function validateApproval(ecoStageId: string, userRole: string) {
-    const stage = await db.eCOStage.findUnique({ where: { id: ecoStageId } });
+    const stage = await db.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, ecoStageId) });
     if (!stage) throw new Error('Stage not found');
 
     if (!stage.requiresApproval) {
@@ -34,23 +31,15 @@ export async function validateApproval(ecoStageId: string, userRole: string) {
 }
 
 /**
- * Validate that ECO can be applied (Must be in a stage that allows application, usually Approved? Or is applied FROM Approved?)
- * The logic is: Apply is the transition TO Implemented. So we must be in the stage BEFORE Implemented?
- * Previous logic: Must be APPROVED.
- * Dynamic Logic: Must be in a stage that transitions TO the final stage. 
- * Or simply, the backend `applyECO` handles the transition. 
- * Let's ensure we are NOT yet in the final stage.
+ * Validate that ECO can be applied
  */
 export async function validateApply(ecoStageId: string) {
-    const stage = await db.eCOStage.findUnique({ where: { id: ecoStageId } });
+    const stage = await db.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, ecoStageId) });
     if (!stage) throw new Error('Stage not found');
 
     if (stage.isFinal) {
         throw new Error('ECO is already applied/final.');
     }
-
-    // Check if next stage is final?
-    // For now, let's loosen this check to just "Not Final". The service handles the flow.
 }
 
 /**
@@ -65,27 +54,27 @@ export function preventDirectUpdate(): never {
  */
 export async function validateActiveVersion(versionId: string, type: 'product' | 'bom') {
     if (type === 'product') {
-        const version = await db.productVersion.findUnique({
-            where: { id: versionId },
+        const version = await db.query.productVersions.findFirst({
+            where: eq(schema.productVersions.id, versionId),
         });
 
         if (!version) {
             throw new Error('Product version not found');
         }
 
-        if (version.status !== ItemStatus.ACTIVE) {
+        if (version.status !== 'ACTIVE') {
             throw new Error('Cannot create ECO for archived product. Only ACTIVE products can be modified.');
         }
     } else {
-        const version = await db.bOMVersion.findUnique({
-            where: { id: versionId },
+        const version = await db.query.bomVersions.findFirst({
+            where: eq(schema.bomVersions.id, versionId),
         });
 
         if (!version) {
             throw new Error('BOM version not found');
         }
 
-        if (version.status !== ItemStatus.ACTIVE) {
+        if (version.status !== 'ACTIVE') {
             throw new Error('Cannot create ECO for archived BOM. Only ACTIVE BOMs can be modified.');
         }
     }
@@ -95,15 +84,15 @@ export async function validateActiveVersion(versionId: string, type: 'product' |
  * Validate that component references ACTIVE product only
  */
 export async function validateComponentIsActive(componentVersionId: string) {
-    const version = await db.productVersion.findUnique({
-        where: { id: componentVersionId },
+    const version = await db.query.productVersions.findFirst({
+        where: eq(schema.productVersions.id, componentVersionId),
     });
 
     if (!version) {
         throw new Error('Component product version not found');
     }
 
-    if (version.status !== ItemStatus.ACTIVE) {
+    if (version.status !== 'ACTIVE') {
         throw new Error('Cannot use archived product as component. Only ACTIVE products can be used in BOMs.');
     }
 }

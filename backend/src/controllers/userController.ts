@@ -1,31 +1,21 @@
-import { Request, Response } from 'express';
-import { db } from '../libs/prisma.js';
+import { Response } from 'express';
+import { db, schema } from '../db/index.js';
+import { eq, asc } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import { hashPass } from '../libs/auth.js';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
 
-/**
- * @swagger
- * /api/users:
- *   get:
- *     summary: Get all users
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of users
- */
 export const getUsers = async (req: AuthRequest, res: Response) => {
     try {
-        const users = await db.user.findMany({
-            select: {
+        const users = await db.query.users.findMany({
+            columns: {
                 id: true,
                 email: true,
                 name: true,
                 role: true,
                 createdAt: true,
             },
-            orderBy: { name: 'asc' },
+            orderBy: [asc(schema.users.name)],
         });
         res.json({ users });
     } catch (error: any) {
@@ -34,38 +24,6 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
     }
 };
 
-/**
- * @swagger
- * /api/users:
- *   post:
- *     summary: Create a new user (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *               - role
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *               name:
- *                 type: string
- *               role:
- *                 type: string
- *                 enum: [ENGINEERING_USER, APPROVER, OPERATIONS_USER, ADMIN]
- *     responses:
- *       201:
- *         description: User created
- */
 export const createUser = async (req: AuthRequest, res: Response) => {
     try {
         const { email, password, name, role } = req.body;
@@ -74,21 +32,25 @@ export const createUser = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'Email, password, and role are required' });
         }
 
-        const existingUser = await db.user.findUnique({ where: { email } });
+        const existingUser = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
         if (existingUser) {
             return res.status(400).json({ error: 'User with this email already exists' });
         }
 
         const hashedPassword = await hashPass(password);
+        const userId = crypto.randomUUID();
 
-        const user = await db.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                name,
-                role,
-            },
-            select: {
+        await db.insert(schema.users).values({
+            id: userId,
+            email,
+            password: hashedPassword,
+            name,
+            role,
+        });
+
+        const createdUser = await db.query.users.findFirst({
+            where: eq(schema.users.id, userId),
+            columns: {
                 id: true,
                 email: true,
                 name: true,
@@ -97,7 +59,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        res.status(201).json({ user });
+        res.status(201).json({ user: createdUser });
     } catch (error: any) {
         console.error('Create user error:', error);
         res.status(500).json({ error: 'Failed to create user' });

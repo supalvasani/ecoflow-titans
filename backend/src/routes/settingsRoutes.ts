@@ -5,16 +5,16 @@ import {
     getApprovalRules,
     updateApprovalRules,
 } from '../controllers/settingsController.js';
-import { authenticate, requireAdmin } from '../middlewares/authMiddleware.js';
+import { authenticate, requireAdmin, requireRole } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
-// Stage configuration
-router.get('/stages', authenticate, getStages);
+const requireNonOperations = requireRole('ADMIN', 'ENGINEERING_USER', 'APPROVER');
+
+router.get('/stages', authenticate, requireNonOperations, getStages);
 router.post('/stages', authenticate, requireAdmin(), updateStages);
 
-// Approval rules configuration
-router.get('/approval-rules', authenticate, getApprovalRules);
+router.get('/approval-rules', authenticate, requireNonOperations, getApprovalRules);
 router.post('/approval-rules', authenticate, requireAdmin(), updateApprovalRules);
 
 export default router;

@@ -1,13 +1,13 @@
-import { db } from '../libs/prisma.js';
-import { ECOStage } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, gt, asc } from 'drizzle-orm';
 
 export class StageService {
     /**
      * Get the initial stage (usually sequence 1)
      */
-    async getInitialStage(): Promise<ECOStage> {
-        const stage = await db.eCOStage.findFirst({
-            orderBy: { sequence: 'asc' },
+    async getInitialStage() {
+        const stage = await db.query.ecoStages.findFirst({
+            orderBy: [asc(schema.ecoStages.sequence)],
         });
 
         if (!stage) {
@@ -20,47 +20,45 @@ export class StageService {
     /**
      * Get the next stage in sequence
      */
-    async getNextStage(currentStageId: string): Promise<ECOStage | null> {
-        const currentStage = await db.eCOStage.findUnique({
-            where: { id: currentStageId },
+    async getNextStage(currentStageId: string) {
+        const currentStage = await db.query.ecoStages.findFirst({
+            where: eq(schema.ecoStages.id, currentStageId),
         });
 
         if (!currentStage) {
             throw new Error('Current stage not found');
         }
 
-        const nextStage = await db.eCOStage.findFirst({
-            where: {
-                sequence: { gt: currentStage.sequence },
-            },
-            orderBy: { sequence: 'asc' },
+        const nextStage = await db.query.ecoStages.findFirst({
+            where: gt(schema.ecoStages.sequence, currentStage.sequence),
+            orderBy: [asc(schema.ecoStages.sequence)],
         });
 
-        return nextStage; // Returns null if terminal stage
+        return nextStage || null;
     }
 
     /**
-     * Get the rejection target stage
-     * Returns the "Rejected" stage (terminal state)
+     * Get the rejection target stage (usually Draft or Rejected)
      */
-    async getRejectionTargetStage(): Promise<ECOStage> {
-        const rejectedStage = await db.eCOStage.findFirst({
-            where: { name: 'Rejected' },
+    async getRejectionTargetStage() {
+        const rejectedStage = await db.query.ecoStages.findFirst({
+            where: eq(schema.ecoStages.name, 'Rejected'),
         });
 
-        if (!rejectedStage) {
-            throw new Error('Rejected stage not found. Please run seed script.');
+        if (rejectedStage) {
+            return rejectedStage;
         }
 
-        return rejectedStage;
+        // Default back to initial draft stage if dedicated Rejected stage doesn't exist
+        return this.getInitialStage();
     }
 
     /**
      * Check if transition is valid based on sequence
      */
     async validateTransition(fromStageId: string, toStageId: string): Promise<boolean> {
-        const from = await db.eCOStage.findUnique({ where: { id: fromStageId } });
-        const to = await db.eCOStage.findUnique({ where: { id: toStageId } });
+        const from = await db.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, fromStageId) });
+        const to = await db.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, toStageId) });
 
         if (!from || !to) return false;
 

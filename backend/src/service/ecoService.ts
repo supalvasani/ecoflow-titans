@@ -1,19 +1,14 @@
-import { db } from '../libs/prisma.js';
-import { ItemStatus, ECOType } from '@prisma/client';
+import { db, schema } from '../db/index.js';
+import { eq, and, desc } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import { validateECOEdit, validateApproval, validateApply, validateActiveVersion, validateComponentIsActive, canViewECOs } from '../libs/ecoValidation.js';
 import { cloneProductVersion, cloneBOMVersion, updateCurrentProductVersion, updateCurrentBOMVersion } from '../libs/versionCloner.js';
 import { stageService } from './stageService.js';
 
 export class ECOService {
-    /**
-     * Create a new ECO for a product
-     */
-    /**
-     * Unified ECO Creation
-     */
     async createECO(data: {
         title: string;
-        type: ECOType;
+        type: 'PRODUCT' | 'BOM' | 'BOM_CHANGE';
         createdById: string;
         assigneeId?: string;
         effectiveDate?: Date;
@@ -26,83 +21,79 @@ export class ECOService {
 
         if (!title) throw new Error('Title is required');
 
-        // Initial Stage
         const newStage = await stageService.getInitialStage();
         const changes = initialChanges || {};
+        const ecoId = crypto.randomUUID();
+        const auditId = crypto.randomUUID();
 
         let ecoData: any = {
+            id: ecoId,
             title,
             type,
             createdById,
-            assigneeId,
+            assigneeId: assigneeId || null,
             stageId: newStage.id,
-            effectiveDate,
+            effectiveDate: effectiveDate || null,
             versionUpdate: versionUpdate !== undefined ? versionUpdate : true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
         };
 
-        if (type === ECOType.PRODUCT) {
+        if (type === 'PRODUCT') {
             if (!productId) throw new Error('Product ID is required for Product ECO');
 
-            // Verify product exists and get active version
-            const product = await db.product.findUnique({
-                where: { id: productId },
-                include: {
-                    versions: { where: { status: ItemStatus.ACTIVE, isCurrent: true } },
-                },
+            const activeVersion = await db.query.productVersions.findFirst({
+                where: and(
+                    eq(schema.productVersions.productId, productId),
+                    eq(schema.productVersions.status, 'ACTIVE'),
+                    eq(schema.productVersions.isCurrent, true)
+                ),
             });
 
-            if (!product) throw new Error('Product not found');
-            if (product.versions.length === 0) throw new Error('Product has no active version');
-
-            const activeVersion = product.versions[0]!;
+            if (!activeVersion) throw new Error('Product not found or has no active version');
             await validateActiveVersion(activeVersion.id, 'product');
 
             ecoData.productVersionId = activeVersion.id;
             ecoData.draftProductId = productId;
             ecoData.draftName = changes.name ?? null;
-            ecoData.draftSalePrice = changes.salePrice ?? null;
-            ecoData.draftCostPrice = changes.costPrice ?? null;
-        }
-        else if (type === ECOType.BOM || type === ECOType.BOM_CHANGE) {
-            // Treat BOM and BOM_CHANGE similarly for creation, but BOM_CHANGE might imply specific intent
+            ecoData.draftSalePrice = changes.salePrice ? changes.salePrice.toString() : null;
+            ecoData.draftCostPrice = changes.costPrice ? changes.costPrice.toString() : null;
+        } else if (type === 'BOM' || type === 'BOM_CHANGE') {
             if (!bomId) throw new Error('BOM ID is required for BOM ECO');
 
-            const bom = await db.bOM.findUnique({
-                where: { id: bomId },
-                include: {
-                    versions: { where: { status: ItemStatus.ACTIVE, isCurrent: true } },
-                },
+            const activeVersion = await db.query.bomVersions.findFirst({
+                where: and(
+                    eq(schema.bomVersions.bomId, bomId),
+                    eq(schema.bomVersions.status, 'ACTIVE'),
+                    eq(schema.bomVersions.isCurrent, true)
+                ),
             });
 
-            if (!bom) throw new Error('BOM not found');
-            if (bom.versions.length === 0) throw new Error('BOM has no active version');
-
-            const activeVersion = bom.versions[0]!;
+            if (!activeVersion) throw new Error('BOM not found or has no active version');
             await validateActiveVersion(activeVersion.id, 'bom');
 
-            // Check if linked product version is ACTIVE
-            const productVersion = await db.productVersion.findUnique({ where: { id: activeVersion.productVersionId } });
-            if (!productVersion || productVersion.status !== ItemStatus.ACTIVE) {
+            const productVersion = await db.query.productVersions.findFirst({
+                where: eq(schema.productVersions.id, activeVersion.productVersionId),
+            });
+            if (!productVersion || productVersion.status !== 'ACTIVE') {
                 throw new Error('Cannot modify BOM. Linked product version is archived.');
             }
 
             ecoData.bomVersionId = activeVersion.id;
             ecoData.draftBomId = bomId;
             ecoData.draftNotes = changes.notes ?? null;
-            ecoData.draftComponents = (changes.components as any) || [];
-            ecoData.draftOperations = [];
+            ecoData.draftComponents = changes.components || [];
+            ecoData.draftOperations = changes.operations || [];
         }
 
-        const eco = await db.eCO.create({
-            data: ecoData,
-            include: { stage: true },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.insert(schema.ecos).values(ecoData);
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: auditId,
                 entity: 'ECO',
-                entityId: eco.id,
-                ecoId: eco.id,
+                entityId: ecoId,
+                ecoId,
                 userId: createdById,
                 action: 'ECO_CREATED',
                 oldValue: null,
@@ -112,110 +103,114 @@ export class ECOService {
                     stage: newStage.name,
                     assigneeId,
                     effectiveDate,
-                    versionUpdate
+                    versionUpdate,
                 }),
-            },
-        });
+            });
 
-        return eco;
+            const eco = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            return this.hydrateECO(eco);
+        });
     }
 
     /**
-     * Create a new ECO for a product (Legacy Wrapper)
+     * Legacy wrappers
      */
-    async createProductECO(productId: string, title: string, userId: string, initialChanges?: { name?: string; salePrice?: number; costPrice?: number }) {
+    async createProductECO(productId: string, title: string, userId: string, initialChanges?: any) {
         return this.createECO({
             title,
-            type: ECOType.PRODUCT,
+            type: 'PRODUCT',
             createdById: userId,
             productId,
-            initialChanges
+            initialChanges,
         });
     }
 
-    /**
-     * Create a new ECO for a BOM (Legacy Wrapper)
-     */
-    async createBOMECO(bomId: string, title: string, userId: string, initialChanges?: { notes?: string, components?: any[] }) {
+    async createBOMECO(bomId: string, title: string, userId: string, initialChanges?: any) {
         return this.createECO({
             title,
-            type: ECOType.BOM,
+            type: 'BOM',
             createdById: userId,
             bomId,
-            initialChanges
+            initialChanges,
         });
     }
 
     /**
-     * Update product draft changes
+     * Update product draft
      */
     async updateProductDraft(ecoId: string, changes: { name?: string; salePrice?: number; costPrice?: number }, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
-        if (eco.type !== ECOType.PRODUCT) throw new Error('This ECO is not for a product');
+        if (eco.type !== 'PRODUCT') throw new Error('This ECO is not for a product');
 
         await validateECOEdit(eco.stageId);
 
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: {
-                draftName: changes.name !== undefined ? changes.name : eco.draftName,
-                draftSalePrice: changes.salePrice !== undefined ? changes.salePrice : eco.draftSalePrice,
-                draftCostPrice: changes.costPrice !== undefined ? changes.costPrice : eco.draftCostPrice,
-            },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({
+                    draftName: changes.name !== undefined ? changes.name : eco.draftName,
+                    draftSalePrice: changes.salePrice !== undefined ? changes.salePrice.toString() : eco.draftSalePrice,
+                    draftCostPrice: changes.costPrice !== undefined ? changes.costPrice.toString() : eco.draftCostPrice,
+                    updatedAt: new Date(),
+                })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
-                entity: 'ECOProductDraft', // Keeping legacy entity name for continuity
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
+                entity: 'ECOProductDraft',
                 entityId: ecoId,
                 ecoId: eco.id,
                 userId,
                 action: 'DRAFT_UPDATED',
                 oldValue: JSON.stringify({ name: eco.draftName, price: eco.draftSalePrice }),
                 newValue: JSON.stringify(changes),
-            },
-        });
+            });
 
-        const hydrated = await this.hydrateECO(updatedECO);
-        return hydrated.productDraft;
+            const updated = await tx.query.ecos.findFirst({ where: eq(schema.ecos.id, ecoId) });
+            const hydrated = await this.hydrateECO(updated);
+            return hydrated.productDraft;
+        });
     }
 
     /**
-     * Update BOM draft (components and operations)
+     * Update BOM draft
      */
     async updateBOMDraft(ecoId: string, components: Array<{ action: string; componentVersionId: string; quantity?: number }>, operations: Array<{ action: string; name: string; timeMinutes?: number; workCenter?: string }>, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
-        if (eco.type !== ECOType.BOM) throw new Error('This ECO is not for a BOM');
+        if (eco.type !== 'BOM' && eco.type !== 'BOM_CHANGE') throw new Error('This ECO is not for a BOM');
 
         await validateECOEdit(eco.stageId);
 
-        // Validate components
         for (const comp of components) {
             if (comp.action === 'ADD' || comp.action === 'UPDATE') {
                 await validateComponentIsActive(comp.componentVersionId);
             }
         }
 
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: {
-                draftComponents: components as any,
-                draftOperations: operations as any,
-            },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({
+                    draftComponents: components,
+                    draftOperations: operations,
+                    updatedAt: new Date(),
+                })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECOBOMDraft',
                 entityId: ecoId,
                 ecoId: eco.id,
@@ -223,20 +218,21 @@ export class ECOService {
                 action: 'DRAFT_UPDATED',
                 oldValue: null,
                 newValue: JSON.stringify({ components: components.length, operations: operations.length }),
-            },
-        });
+            });
 
-        const hydrated = await this.hydrateECO(updatedECO);
-        return hydrated.bomDraft;
+            const updated = await tx.query.ecos.findFirst({ where: eq(schema.ecos.id, ecoId) });
+            const hydrated = await this.hydrateECO(updated);
+            return hydrated.bomDraft;
+        });
     }
 
     /**
-     * Add draft attachment to ECO
+     * Add draft attachment
      */
     async addDraftAttachment(ecoId: string, filename: string, url: string, action: string, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
@@ -244,24 +240,24 @@ export class ECOService {
 
         const currentAttachments = (eco.draftAttachments as any[]) || [];
         const newAttachment = {
-            id: Date.now().toString(), // Virtual ID
+            id: Date.now().toString(),
             ecoId,
             filename,
             url,
             action,
         };
-
         currentAttachments.push(newAttachment);
 
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: {
-                draftAttachments: currentAttachments as any,
-            },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({
+                    draftAttachments: currentAttachments,
+                    updatedAt: new Date(),
+                })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECODraftAttachment',
                 entityId: newAttachment.id,
                 ecoId,
@@ -269,46 +265,40 @@ export class ECOService {
                 action: 'DRAFT_ATTACHMENT_ADDED',
                 oldValue: null,
                 newValue: JSON.stringify({ filename, action }),
-            },
-        });
+            });
 
-        return newAttachment;
+            return newAttachment;
+        });
     }
 
     /**
-     * Submit ECO for review (NEW → REVIEW)
+     * Submit ECO for review
      */
     async submitForReview(ecoId: string, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
 
-        // Get Next Stage (Dynamic)
         const nextStage = await stageService.getNextStage(eco.stageId);
-
         if (!nextStage) {
-            throw new Error('No next stage found. This might be the final stage.');
+            throw new Error('No next stage found.');
         }
 
-        // Validate transition
         const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
         if (!isValid) {
             throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
         }
 
-        // Update ECO stage
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { stageId: nextStage.id },
-            include: { stage: true },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({ stageId: nextStage.id, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
 
-        // Create audit log
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECO',
                 entityId: ecoId,
                 ecoId,
@@ -316,52 +306,49 @@ export class ECOService {
                 action: 'STAGE_TRANSITION',
                 oldValue: eco.stage.name,
                 newValue: nextStage.name,
-            },
-        });
+            });
 
-        return this.hydrateECO(updatedECO);
+            const updatedECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            return this.hydrateECO(updatedECO);
+        });
     }
 
     /**
-     * Advance ECO to next stage (For stages that DO NOT require approval)
-     * e.g. "Validate" button behavior
+     * Advance ECO stage (Handles non-approval stages or general progression)
      */
     async advanceStage(ecoId: string, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
 
-        // Check internal mandatory flag OR stage configuration
-        // Prioritize ECO-specific flag if set to TRUE
         if (eco.mandatoryApproval || eco.stage.requiresApproval) {
             throw new Error('Current stage requires formal approval. Please use the approve endpoint.');
         }
 
-        // Get Next Stage (Dynamic)
         const nextStage = await stageService.getNextStage(eco.stageId);
-
         if (!nextStage) {
-            throw new Error('No next stage found. This might be the final stage.');
+            throw new Error('No next stage found.');
         }
 
-        // Validate transition
         const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
         if (!isValid) {
             throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
         }
 
-        // Update ECO stage
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { stageId: nextStage.id },
-            include: { stage: true },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({ stageId: nextStage.id, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECO',
                 entityId: ecoId,
                 ecoId,
@@ -369,48 +356,47 @@ export class ECOService {
                 action: 'STAGE_ADVANCED',
                 oldValue: eco.stage.name,
                 newValue: nextStage.name,
-            },
-        });
+            });
 
-        return this.hydrateECO(updatedECO);
+            const updatedECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            return this.hydrateECO(updatedECO);
+        });
     }
 
     /**
-     * Approve ECO (REVIEW → APPROVED)
+     * Approve ECO
      */
     async approveECO(ecoId: string, approverId: string, userRole: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
 
-        // Validate approval
         await validateApproval(eco.stageId, userRole);
 
-        // Get Next Stage (Dynamic)
         const nextStage = await stageService.getNextStage(eco.stageId);
-
         if (!nextStage) {
             throw new Error('No next stage found');
         }
 
-        // Validate transition
         const isValid = await stageService.validateTransition(eco.stageId, nextStage.id);
         if (!isValid) {
             throw new Error(`Cannot transition from ${eco.stage.name} to ${nextStage.name}`);
         }
 
-        // Update ECO stage
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { stageId: nextStage.id },
-            include: { stage: true },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({ stageId: nextStage.id, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECO',
                 entityId: ecoId,
                 ecoId,
@@ -418,46 +404,50 @@ export class ECOService {
                 action: 'ECO_APPROVED',
                 oldValue: eco.stage.name,
                 newValue: nextStage.name,
-            },
-        });
+            });
 
-        return this.hydrateECO(updatedECO);
+            const updatedECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            // If next stage is final, trigger apply automatically
+            if (nextStage.isFinal) {
+                return await this.applyECO(ecoId, approverId);
+            }
+
+            return this.hydrateECO(updatedECO);
+        });
     }
 
     /**
-     * Reject ECO (REVIEW → NEW)
+     * Reject ECO
      */
     async rejectECO(ecoId: string, approverId: string, reason: string, userRole: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
 
-        // Validate user is approver
         if (!['APPROVER', 'ADMIN'].includes(userRole)) {
             throw new Error('Only approvers can reject ECOs');
         }
 
-        // Get Rejection Target (Dynamic - usually Draft)
         const targetStage = await stageService.getRejectionTargetStage();
-
-        // Validate transition
         const isValid = await stageService.validateTransition(eco.stageId, targetStage.id);
         if (!isValid) {
             throw new Error(`Cannot transition from ${eco.stage.name} to ${targetStage.name}`);
         }
 
-        // Update ECO stage
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { stageId: targetStage.id },
-            include: { stage: true },
-        });
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({ stageId: targetStage.id, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
 
-        await db.auditLog.create({
-            data: {
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECO',
                 entityId: ecoId,
                 ecoId,
@@ -465,69 +455,59 @@ export class ECOService {
                 action: 'ECO_REJECTED',
                 oldValue: eco.stage.name,
                 newValue: `${targetStage.name} (Reason: ${reason})`,
-            },
-        });
+            });
 
-        return this.hydrateECO(updatedECO);
+            const updatedECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            return this.hydrateECO(updatedECO);
+        });
     }
 
     /**
-     * Apply ECO - Creates new version with draft changes (APPROVED → APPLIED)
-     * This is the critical method that enforces version cloning
+     * Apply ECO - Fully transactional execution
      */
     async applyECO(ecoId: string, userId: string) {
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: {
-                stage: true,
-            },
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: { stage: true },
         });
 
         if (!eco) throw new Error('ECO not found');
 
-        // Validate ECO is approved
         await validateApply(eco.stageId);
 
-        // Validate Effective Date
         if (eco.effectiveDate && new Date(eco.effectiveDate) > new Date()) {
             throw new Error(`Cannot apply ECO before effective date: ${eco.effectiveDate.toISOString().split('T')[0]}`);
         }
 
-        // Get Next Stage (Should be the Final/Applied stage)
         const nextStage = await stageService.getNextStage(eco.stageId);
-
-        // Assuming Implemented is the next stage after Approved
-        const appliedStage = nextStage;
-        if (!appliedStage) {
-            throw new Error('No next stage found (Implemented stage missing?)');
-        }
-
-        let newVersion: any;
+        const appliedStage = nextStage || eco.stage;
 
         const hydratedEco = await this.hydrateECO(eco);
 
-        // Apply Product ECO
-        if (eco.type === ECOType.PRODUCT && eco.productVersionId) {
-            const activeVersion = await db.productVersion.findUnique({
-                where: { id: eco.productVersionId },
-            });
+        return await db.transaction(async (tx) => {
+            let newVersion: any;
 
-            if (!activeVersion) {
-                throw new Error('Active product version not found');
-            }
+            if (eco.type === 'PRODUCT' && eco.productVersionId) {
+                const activeVersion = await tx.query.productVersions.findFirst({
+                    where: eq(schema.productVersions.id, eco.productVersionId),
+                });
 
-            // Check Version Update Toggle
-            if (eco.versionUpdate) {
-                // TRUE: Create NEW Version (Standard Flow)
-                newVersion = await cloneProductVersion(
-                    activeVersion,
-                    hydratedEco.productDraft,
-                    hydratedEco.draftAttachments
-                );
+                if (!activeVersion) throw new Error('Active product version not found');
 
-                // Log version creation
-                await db.auditLog.create({
-                    data: {
+                if (eco.versionUpdate) {
+                    newVersion = await cloneProductVersion(
+                        tx,
+                        activeVersion,
+                        hydratedEco.productDraft,
+                        hydratedEco.draftAttachments
+                    );
+
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'ProductVersion',
                         entityId: newVersion.id,
                         ecoId,
@@ -535,12 +515,10 @@ export class ECOService {
                         action: 'VERSION_CREATED',
                         oldValue: JSON.stringify({ version: activeVersion.version }),
                         newValue: JSON.stringify({ version: newVersion.version, changes: hydratedEco.productDraft }),
-                    },
-                });
+                    });
 
-                // Log archival
-                await db.auditLog.create({
-                    data: {
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'ProductVersion',
                         entityId: activeVersion.id,
                         ecoId,
@@ -548,53 +526,50 @@ export class ECOService {
                         action: 'VERSION_ARCHIVED',
                         oldValue: 'ACTIVE',
                         newValue: 'ARCHIVED',
-                    },
-                });
-            } else {
-                // FALSE: Update EXISTING Version (Hotfix Flow)
-                newVersion = await updateCurrentProductVersion(
-                    activeVersion,
-                    hydratedEco.productDraft,
-                    hydratedEco.draftAttachments
-                );
+                    });
+                } else {
+                    newVersion = await updateCurrentProductVersion(
+                        tx,
+                        activeVersion,
+                        hydratedEco.productDraft,
+                        hydratedEco.draftAttachments
+                    );
 
-                // Log version update
-                await db.auditLog.create({
-                    data: {
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'ProductVersion',
-                        entityId: activeVersion.id, // ID remains same
+                        entityId: activeVersion.id,
                         ecoId,
                         userId,
-                        action: 'VERSION_UPDATED', // Distinct action
+                        action: 'VERSION_UPDATED',
                         oldValue: 'Previous State',
                         newValue: JSON.stringify({ version: activeVersion.version, changes: hydratedEco.productDraft }),
-                    },
+                    });
+                }
+
+                if (hydratedEco.productDraft?.name) {
+                    await tx.update(schema.products)
+                        .set({ name: hydratedEco.productDraft.name })
+                        .where(eq(schema.products.id, eco.draftProductId!));
+                }
+            } else if ((eco.type === 'BOM' || eco.type === 'BOM_CHANGE') && eco.bomVersionId) {
+                const activeVersion = await tx.query.bomVersions.findFirst({
+                    where: eq(schema.bomVersions.id, eco.bomVersionId),
                 });
-            }
-        }
-        // Apply BOM ECO
-        else if (eco.type === ECOType.BOM && eco.bomVersionId) {
-            const activeVersion = await db.bOMVersion.findUnique({
-                where: { id: eco.bomVersionId },
-            });
 
-            if (!activeVersion) {
-                throw new Error('Active BOM version not found');
-            }
+                if (!activeVersion) throw new Error('Active BOM version not found');
 
-            // Check Version Update Toggle
-            if (eco.versionUpdate) {
-                // TRUE: Create NEW Version
-                newVersion = await cloneBOMVersion(
-                    activeVersion,
-                    hydratedEco.bomDraft,
-                    hydratedEco.bomDraft?.draftComponents || [],
-                    hydratedEco.bomDraft?.draftOperations || []
-                );
+                if (eco.versionUpdate) {
+                    newVersion = await cloneBOMVersion(
+                        tx,
+                        activeVersion,
+                        hydratedEco.bomDraft,
+                        hydratedEco.bomDraft?.draftComponents || [],
+                        hydratedEco.bomDraft?.draftOperations || []
+                    );
 
-                // Log version creation
-                await db.auditLog.create({
-                    data: {
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'BOMVersion',
                         entityId: newVersion.id,
                         ecoId,
@@ -602,12 +577,10 @@ export class ECOService {
                         action: 'VERSION_CREATED',
                         oldValue: JSON.stringify({ version: activeVersion.version }),
                         newValue: JSON.stringify({ version: newVersion.version }),
-                    },
-                });
+                    });
 
-                // Log archival
-                await db.auditLog.create({
-                    data: {
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'BOMVersion',
                         entityId: activeVersion.id,
                         ecoId,
@@ -615,20 +588,18 @@ export class ECOService {
                         action: 'VERSION_ARCHIVED',
                         oldValue: 'ACTIVE',
                         newValue: 'ARCHIVED',
-                    },
-                });
-            } else {
-                // FALSE: Update EXISTING Version
-                newVersion = await updateCurrentBOMVersion(
-                    activeVersion,
-                    hydratedEco.bomDraft,
-                    hydratedEco.bomDraft?.draftComponents || [],
-                    hydratedEco.bomDraft?.draftOperations || []
-                );
+                    });
+                } else {
+                    newVersion = await updateCurrentBOMVersion(
+                        tx,
+                        activeVersion,
+                        hydratedEco.bomDraft,
+                        hydratedEco.bomDraft?.draftComponents || [],
+                        hydratedEco.bomDraft?.draftOperations || []
+                    );
 
-                // Log version update
-                await db.auditLog.create({
-                    data: {
+                    await tx.insert(schema.auditLogs).values({
+                        id: crypto.randomUUID(),
                         entity: 'BOMVersion',
                         entityId: activeVersion.id,
                         ecoId,
@@ -636,21 +607,18 @@ export class ECOService {
                         action: 'VERSION_UPDATED',
                         oldValue: 'Previous State',
                         newValue: JSON.stringify({ version: activeVersion.version }),
-                    },
-                });
+                    });
+                }
             }
-        }
 
-        // Mark ECO as APPLIED
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { stageId: appliedStage.id },
-            include: { stage: true },
-        });
+            // Update ECO stage to applied/final
+            await tx.update(schema.ecos)
+                .set({ stageId: appliedStage.id, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
 
-        // Log ECO applied
-        await db.auditLog.create({
-            data: {
+            // Log ECO applied
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
                 entity: 'ECO',
                 entityId: ecoId,
                 ecoId,
@@ -658,83 +626,110 @@ export class ECOService {
                 action: 'ECO_APPLIED',
                 oldValue: eco.stage.name,
                 newValue: appliedStage.name,
-            },
-        });
+            });
 
-        const finalHydrated = await this.hydrateECO(updatedECO);
-        return { eco: finalHydrated, newVersion };
+            // Create Operations task
+            await tx.insert(schema.operationsTasks).values({
+                id: crypto.randomUUID(),
+                ecoId: eco.id,
+                title: `Implement changes for ECO: ${eco.title}`,
+                description: `ECO ${eco.title} has been applied. Please implement the physical changes.`,
+                status: 'PENDING',
+            });
+
+            const finalECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            const finalHydrated = await this.hydrateECO(finalECO);
+            return { eco: finalHydrated, newVersion };
+        });
     }
 
     /**
-     * Get all ECOs (filtered by user role)
+     * Set mandatory approval flag (Admin only)
      */
-    async getECOs(userRole: string, filters?: { type?: ECOType; stageId?: string }) {
-        // Operations users cannot see ECOs
+    async setMandatoryApproval(ecoId: string, mandatoryApproval: boolean, userId: string, userRole: string) {
+        if (userRole !== 'ADMIN') {
+            throw new Error('Only admins can update mandatory approval flag');
+        }
+
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+        });
+
+        if (!eco) throw new Error('ECO not found');
+
+        return await db.transaction(async (tx) => {
+            await tx.update(schema.ecos)
+                .set({ mandatoryApproval, updatedAt: new Date() })
+                .where(eq(schema.ecos.id, ecoId));
+
+            await tx.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
+                entity: 'ECO',
+                entityId: ecoId,
+                ecoId,
+                userId,
+                action: 'MANDATORY_APPROVAL_TOGGLED',
+                oldValue: eco.mandatoryApproval ? 'true' : 'false',
+                newValue: mandatoryApproval ? 'true' : 'false',
+            });
+
+            const updatedECO = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.id, ecoId),
+                with: { stage: true },
+            });
+
+            return this.hydrateECO(updatedECO);
+        });
+    }
+
+    /**
+     * Get ECOs
+     */
+    async getECOs(userRole: string, filters?: { type?: any; stageId?: string }) {
         if (!canViewECOs(userRole)) {
             return [];
         }
 
-        const whereClause = {
-            ...(filters?.type && { type: filters.type }),
-            ...(filters?.stageId && { stageId: filters.stageId }),
-        };
-
-        const ecos = await db.eCO.findMany({
-            where: whereClause,
-            include: {
-                stage: true,
-                createdBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-                assignedTo: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
+        const ecosystem = await db.query.ecos.findMany({
+            where: (e, { and: andFn, eq: eqFn }) => {
+                const conds = [];
+                if (filters?.type) conds.push(eqFn(e.type, filters.type));
+                if (filters?.stageId) conds.push(eqFn(e.stageId, filters.stageId));
+                return conds.length ? andFn(...conds) : undefined;
             },
-            orderBy: { createdAt: 'desc' },
+            with: {
+                stage: true,
+                createdBy: true,
+                assignedTo: true,
+            },
+            orderBy: [desc(schema.ecos.createdAt)],
         });
 
-        // Hydrate all results
-        return Promise.all(ecos.map(eco => this.hydrateECO(eco)));
+        return Promise.all(ecosystem.map(e => this.hydrateECO(e)));
     }
 
     /**
-     * Get ECO by ID with full details
+     * Get ECO by ID
      */
     async getECOById(ecoId: string, userRole: string) {
-        // Operations users cannot see ECOs
         if (!canViewECOs(userRole)) {
-            throw new Error('Access denied. Operations users cannot view ECOs.');
+            const error: any = new Error('Access denied. Operations users cannot view ECOs.');
+            error.statusCode = 403;
+            throw error;
         }
 
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: {
+        const eco = await db.query.ecos.findFirst({
+            where: eq(schema.ecos.id, ecoId),
+            with: {
                 stage: true,
-                createdBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-                logs: {
-                    include: {
-                        user: {
-                            select: {
-                                name: true,
-                                email: true,
-                            },
-                        },
-                    },
-                    orderBy: { timestamp: 'desc' },
+                createdBy: true,
+                auditLogs: {
+                    with: { user: true },
+                    orderBy: [desc(schema.auditLogs.timestamp)],
                 },
             },
         });
@@ -743,148 +738,63 @@ export class ECOService {
             throw new Error('ECO not found');
         }
 
-        // Hydrate
         return this.hydrateECO(eco);
     }
 
     /**
-     * Get ECO statistics (count by stage)
+     * Get ECO statistics
      */
     async getECOStatistics(userRole: string) {
         if (!canViewECOs(userRole)) {
             return [];
         }
 
-        const stats = await db.eCO.groupBy({
-            by: ['stageId'],
-            _count: {
-                id: true,
-            },
+        const allEcos = await db.query.ecos.findMany({
+            with: { stage: true },
         });
 
-        const statisticsWithStageNames = await Promise.all(
-            stats.map(async (stat) => {
-                const stage = await db.eCOStage.findUnique({
-                    where: { id: stat.stageId },
-                    select: { name: true },
-                });
-                return {
-                    stageName: stage?.name || 'Unknown',
-                    count: stat._count.id,
-                };
-            })
-        );
+        const stageCounts = new Map<string, number>();
+        for (const e of allEcos) {
+            const name = e.stage?.name || 'Unknown';
+            stageCounts.set(name, (stageCounts.get(name) || 0) + 1);
+        }
 
-        return statisticsWithStageNames;
+        return Array.from(stageCounts.entries()).map(([stageName, count]) => ({
+            stageName,
+            count,
+        }));
     }
 
     /**
-     * Hydrate ECO entity to include virtual draft objects
-     * allowing frontend to work without changes
+     * Hydrate virtual draft structures for frontend output compatibility
      */
     private async hydrateECO(eco: any) {
-        // Helper to parse JSON safely
-        const parse = (val: any) => typeof val === 'string' ? JSON.parse(val) : (val || []);
+        if (!eco) return null;
 
-        const hydrated = { ...eco };
-
-        // Hydrate Product Draft
-        if (eco.type === ECOType.PRODUCT && eco.draftProductId) {
-            const product = await db.product.findUnique({
-                where: { id: eco.draftProductId },
-                include: {
-                    versions: { where: { status: ItemStatus.ACTIVE } }
-                }
-            });
-
-            hydrated.productDraft = {
-                id: `virtual-${eco.id}`,
-                ecoId: eco.id,
+        const productDraft = eco.type === 'PRODUCT'
+            ? {
                 productId: eco.draftProductId,
                 name: eco.draftName,
-                salePrice: eco.draftSalePrice,
-                costPrice: eco.draftCostPrice,
-                product: product
-            };
-        } else {
-            hydrated.productDraft = null;
-        }
+                salePrice: eco.draftSalePrice ? parseFloat(eco.draftSalePrice) : undefined,
+                costPrice: eco.draftCostPrice ? parseFloat(eco.draftCostPrice) : undefined,
+            }
+            : null;
 
-        // Hydrate BOM Draft
-        if (eco.type === ECOType.BOM && eco.draftBomId) {
-            const bom = await db.bOM.findUnique({
-                where: { id: eco.draftBomId },
-                include: {
-                    versions: { where: { status: ItemStatus.ACTIVE } }
-                }
-            });
-
-            const draftComponents = parse(eco.draftComponents);
-            const draftOperations = parse(eco.draftOperations);
-
-            // Fetch component details for draftComponents logic (to show product names)
-            // This is "expensive" N+1 but safe for single ECO view.
-            const expandedComponents = await Promise.all(draftComponents.map(async (dc: any) => {
-                const version = await db.productVersion.findUnique({
-                    where: { id: dc.componentVersionId },
-                    include: { product: true }
-                });
-                return { ...dc, componentVersion: version };
-            }));
-
-            hydrated.bomDraft = {
-                id: `virtual-${eco.id}`,
-                ecoId: eco.id,
+        const bomDraft = (eco.type === 'BOM' || eco.type === 'BOM_CHANGE')
+            ? {
                 bomId: eco.draftBomId,
                 notes: eco.draftNotes,
-                draftComponents: expandedComponents,
-                draftOperations: draftOperations,
-                bom: bom
-            };
-        } else {
-            hydrated.bomDraft = null;
-        }
+                draftComponents: (eco.draftComponents as any[]) || [],
+                draftOperations: (eco.draftOperations as any[]) || [],
+            }
+            : null;
 
-        // Hydrate Attachments
-        hydrated.draftAttachments = parse(eco.draftAttachments);
-
-        return hydrated;
-    }
-
-    /**
-     * Update ECO mandatory approval flag (Admin only)
-     */
-    async setMandatoryApproval(ecoId: string, mandatoryApproval: boolean, userId: string, userRole: string) {
-        if (userRole !== 'ADMIN') {
-            throw new Error('Only admins can set mandatory approval flag');
-        }
-
-        const eco = await db.eCO.findUnique({
-            where: { id: ecoId },
-            include: { stage: true },
-        });
-
-        if (!eco) throw new Error('ECO not found');
-
-        const updatedECO = await db.eCO.update({
-            where: { id: ecoId },
-            data: { mandatoryApproval },
-            include: { stage: true },
-        });
-
-        await db.auditLog.create({
-            data: {
-                entity: 'ECO',
-                entityId: ecoId,
-                ecoId,
-                userId,
-                action: 'MANDATORY_APPROVAL_UPDATED',
-                oldValue: String(eco.mandatoryApproval),
-                newValue: String(mandatoryApproval),
-            },
-        });
-
-        return this.hydrateECO(updatedECO);
+        return {
+            ...eco,
+            productDraft,
+            bomDraft,
+            draftAttachments: (eco.draftAttachments as any[]) || [],
+        };
     }
 }
 

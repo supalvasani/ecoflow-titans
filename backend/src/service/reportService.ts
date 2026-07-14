@@ -1,120 +1,80 @@
-import { db } from '../libs/prisma.js';
+import { db, schema } from '../db/index.js';
+import { eq, and, desc, gte, lte } from 'drizzle-orm';
 
-/**
- * Get ECO history with optional filters
- */
 export const getECOHistory = async (filters?: {
     type?: string;
     stageId?: string;
     startDate?: Date;
     endDate?: Date;
 }) => {
-    const where: any = {};
+    const conditions = [];
 
-    if (filters?.type) {
-        where.type = filters.type;
-    }
-    if (filters?.stageId) {
-        where.stageId = filters.stageId;
-    }
-    if (filters?.startDate || filters?.endDate) {
-        where.createdAt = {};
-        if (filters.startDate) {
-            where.createdAt.gte = filters.startDate;
-        }
-        if (filters.endDate) {
-            where.createdAt.lte = filters.endDate;
-        }
-    }
+    if (filters?.type) conditions.push(eq(schema.ecos.type, filters.type as any));
+    if (filters?.stageId) conditions.push(eq(schema.ecos.stageId, filters.stageId));
+    if (filters?.startDate) conditions.push(gte(schema.ecos.createdAt, filters.startDate));
+    if (filters?.endDate) conditions.push(lte(schema.ecos.createdAt, filters.endDate));
 
-    const ecos = await db.eCO.findMany({
-        where,
-        include: {
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return db.query.ecos.findMany({
+        where: whereClause,
+        with: {
             createdBy: {
-                select: {
+                columns: {
                     id: true,
                     name: true,
                     email: true,
                 },
             },
             stage: true,
-            productDraft: {
-                include: {
-                    product: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
+            draftProduct: {
+                columns: {
+                    id: true,
+                    name: true,
                 },
             },
-            bomDraft: {
-                include: {
-                    bom: {
-                        select: {
-                            id: true,
-                        },
-                    },
+            draftBom: {
+                columns: {
+                    id: true,
                 },
             },
         },
-        orderBy: {
-            createdAt: 'desc',
-        },
+        orderBy: [desc(schema.ecos.createdAt)],
     });
-
-    return ecos;
 };
 
-/**
- * Get all product versions across all products
- */
 export const getProductVersions = async (productId?: string) => {
-    const where: any = {};
-    if (productId) {
-        where.productId = productId;
-    }
+    const whereClause = productId ? eq(schema.productVersions.productId, productId) : undefined;
 
-    const versions = await db.productVersion.findMany({
-        where,
-        include: {
+    return db.query.productVersions.findMany({
+        where: whereClause,
+        with: {
             product: {
-                select: {
+                columns: {
                     id: true,
                     name: true,
                 },
             },
         },
-        orderBy: [
-            { productId: 'asc' },
-            { version: 'desc' },
-        ],
+        orderBy: [desc(schema.productVersions.version)],
     });
-
-    return versions;
 };
 
-/**
- * Get BOM change history
- */
 export const getBOMHistory = async (bomId?: string) => {
-    const where: any = {};
-    if (bomId) {
-        where.bomId = bomId;
-    }
+    const whereClause = bomId ? eq(schema.bomVersions.bomId, bomId) : undefined;
 
-    const versions = await db.bOMVersion.findMany({
-        where,
-        include: {
+    return db.query.bomVersions.findMany({
+        where: whereClause,
+        with: {
             bom: {
-                select: {
+                columns: {
                     id: true,
                 },
             },
             components: {
-                include: {
+                with: {
                     componentVersion: {
-                        select: {
+                        columns: {
                             id: true,
                             version: true,
                             productId: true,
@@ -124,45 +84,37 @@ export const getBOMHistory = async (bomId?: string) => {
             },
             operations: true,
         },
-        orderBy: [
-            { bomId: 'asc' },
-            { version: 'desc' },
-        ],
+        orderBy: [desc(schema.bomVersions.version)],
     });
-
-    return versions;
 };
 
-/**
- * Get active matrix showing current active versions of all products and BOMs
- */
 export const getActiveMatrix = async () => {
-    // Get all products with their current versions
-    const products = await db.product.findMany({
-        include: {
+    const products = await db.query.products.findMany({
+        with: {
             versions: {
-                where: {
-                    isCurrent: true,
-                },
-                include: {
+                where: and(
+                    eq(schema.productVersions.isCurrent, true),
+                    eq(schema.productVersions.status, 'ACTIVE')
+                ),
+                with: {
                     attachments: true,
                 },
             },
         },
     });
 
-    // Get all BOMs with their current versions
-    const boms = await db.bOM.findMany({
-        include: {
+    const boms = await db.query.boms.findMany({
+        with: {
             versions: {
-                where: {
-                    isCurrent: true,
-                },
-                include: {
+                where: and(
+                    eq(schema.bomVersions.isCurrent, true),
+                    eq(schema.bomVersions.status, 'ACTIVE')
+                ),
+                with: {
                     components: {
-                        include: {
+                        with: {
                             componentVersion: {
-                                select: {
+                                columns: {
                                     id: true,
                                     version: true,
                                     productId: true,

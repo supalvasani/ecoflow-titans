@@ -1,8 +1,6 @@
-import { db } from '../libs/prisma.js';
+import { db, schema } from '../db/index.js';
+import { eq, and, desc, count } from 'drizzle-orm';
 
-/**
- * Get audit logs with optional filtering and pagination
- */
 export const getAuditLogs = async (filters: {
     entity?: string;
     entityId?: string;
@@ -18,31 +16,33 @@ export const getAuditLogs = async (filters: {
         offset = 0,
     } = filters;
 
-    // Build where clause
-    const where: any = {};
-    if (entity) where.entity = entity;
-    if (entityId) where.entityId = entityId;
-    if (userId) where.userId = userId;
+    const conditions = [];
+    if (entity) conditions.push(eq(schema.auditLogs.entity, entity));
+    if (entityId) conditions.push(eq(schema.auditLogs.entityId, entityId));
+    if (userId) conditions.push(eq(schema.auditLogs.userId, userId));
 
-    // Get total count for pagination
-    const total = await db.auditLog.count({ where });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get logs with user information
-    const logs = await db.auditLog.findMany({
-        where,
-        include: {
+    const countResult = await db
+        .select({ value: count() })
+        .from(schema.auditLogs)
+        .where(whereClause);
+
+    const total = countResult[0]?.value || 0;
+
+    const logs = await db.query.auditLogs.findMany({
+        where: whereClause,
+        with: {
             user: {
-                select: {
+                columns: {
                     name: true,
                     email: true,
                 },
             },
         },
-        orderBy: {
-            timestamp: 'desc',
-        },
-        take: limit,
-        skip: offset,
+        orderBy: [desc(schema.auditLogs.timestamp)],
+        limit,
+        offset,
     });
 
     return {
@@ -53,50 +53,38 @@ export const getAuditLogs = async (filters: {
     };
 };
 
-/**
- * Get audit logs for a specific ECO
- */
 export const getAuditLogsByECO = async (ecoId: string) => {
-    const logs = await db.auditLog.findMany({
-        where: {
-            ecoId,
-        },
-        include: {
+    const logs = await db.query.auditLogs.findMany({
+        where: eq(schema.auditLogs.ecoId, ecoId),
+        with: {
             user: {
-                select: {
+                columns: {
                     name: true,
                     email: true,
                 },
             },
         },
-        orderBy: {
-            timestamp: 'desc',
-        },
+        orderBy: [desc(schema.auditLogs.timestamp)],
     });
 
     return { logs };
 };
 
-/**
- * Get audit logs for a specific entity
- */
 export const getAuditLogsByEntity = async (entity: string, entityId: string) => {
-    const logs = await db.auditLog.findMany({
-        where: {
-            entity,
-            entityId,
-        },
-        include: {
+    const logs = await db.query.auditLogs.findMany({
+        where: and(
+            eq(schema.auditLogs.entity, entity),
+            eq(schema.auditLogs.entityId, entityId)
+        ),
+        with: {
             user: {
-                select: {
+                columns: {
                     name: true,
                     email: true,
                 },
             },
         },
-        orderBy: {
-            timestamp: 'desc',
-        },
+        orderBy: [desc(schema.auditLogs.timestamp)],
     });
 
     return { logs };

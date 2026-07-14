@@ -4,17 +4,14 @@ import {
     getECOAuditLogs,
     getEntityAuditLogs,
 } from '../controllers/auditController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requireRole } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
-// Get audit logs with optional filtering
-router.get('/', authenticate, getAuditLogs);
+const requireAuditAccess = requireRole('ADMIN', 'ENGINEERING_USER', 'APPROVER');
 
-// Get audit logs for a specific ECO
-router.get('/eco/:ecoId', authenticate, getECOAuditLogs);
-
-// Get audit logs for a specific entity
-router.get('/entity/:entity/:entityId', authenticate, getEntityAuditLogs);
+router.get('/', authenticate, requireAuditAccess, getAuditLogs);
+router.get('/eco/:ecoId', authenticate, requireAuditAccess, getECOAuditLogs);
+router.get('/entity/:entity/:entityId', authenticate, requireAuditAccess, getEntityAuditLogs);
 
 export default router;
