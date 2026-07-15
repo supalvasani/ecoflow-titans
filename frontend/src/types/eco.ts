@@ -4,9 +4,8 @@ import type { Product } from './product';
 export const ECOType = {
     PRODUCT: 'PRODUCT',
     BOM: 'BOM',
-    BOM_CHANGE: 'BOM_CHANGE'
 } as const;
-export type ECOType = (typeof ECOType)[keyof typeof ECOType];
+export type ECOType = (typeof ECOType)[keyof typeof ECOType] | 'BOM_CHANGE';
 
 export interface ECOStage {
     id: string;

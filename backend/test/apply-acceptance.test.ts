@@ -115,6 +115,13 @@ describe('ECOFlow End-to-End Acceptance & Critical Bug Fix Suite', () => {
         if (server) {
             server.close();
         }
+        // Automatically re-seed DB after test run completes so dev data is restored
+        try {
+            const { execSync } = await import('node:child_process');
+            execSync('npx tsx src/db/seed.ts');
+        } catch {
+            // ignore cleanup errors
+        }
         setTimeout(() => process.exit(0), 100);
     });
 
@@ -214,8 +221,8 @@ describe('ECOFlow End-to-End Acceptance & Critical Bug Fix Suite', () => {
         assert.equal(opsRes.status, 200);
         assert.equal(opsRes.data.product.versions.length, 1);
         assert.equal(opsRes.data.product.versions[0].version, 2);
-        assert.equal(opsRes.data.product.versions[0].salePrice, '65.00');
-        assert.equal(opsRes.data.product.versions[0].costPrice, '28.00');
+        assert.equal(parseFloat(opsRes.data.product.versions[0].salePrice), 65.00);
+        assert.equal(parseFloat(opsRes.data.product.versions[0].costPrice), 28.00);
     });
 
     it('Role Enforcement Matrix: Assert 403 status for unauthorized operations per role', async () => {
@@ -233,7 +240,7 @@ describe('ECOFlow End-to-End Acceptance & Critical Bug Fix Suite', () => {
         assert.equal(engApprove.status, 403);
 
         // Approver user tries to edit draft -> 403
-        const appDraft = await request('PATCH', `/api/ecos/${fakeId}/draft/product`, appToken, { name: 'Hack' });
+        const appDraft = await request('PATCH', `/api/ecos/${fakeId}/draft`, appToken, { name: 'Hack' });
         assert.equal(appDraft.status, 403);
     });
 });

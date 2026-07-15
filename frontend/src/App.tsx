@@ -81,7 +81,7 @@ function App() {
           <Route
             path="/products/new"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={Role.ADMIN}>
                 <ProductCreatePage />
               </ProtectedRoute>
             }
@@ -91,14 +91,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductDetailPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/products/new"
-            element={
-              <ProtectedRoute requiredRole={Role.ADMIN}>
-                <ProductCreatePage />
               </ProtectedRoute>
             }
           />

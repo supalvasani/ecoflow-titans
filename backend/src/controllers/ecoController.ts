@@ -97,45 +97,7 @@ export const createECO = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const createProductECO = async (req: AuthRequest, res: Response) => {
-    try {
-        const { productId, title, name, salePrice, costPrice } = req.body;
-        const userId = req.user!.userId;
-        const initialChanges = { name, salePrice, costPrice };
-
-        const eco = await ecoService.createECO({
-            title,
-            type: ECOType.PRODUCT,
-            createdById: userId,
-            productId,
-            initialChanges
-        });
-
-        res.status(201).json({ message: 'Product ECO created successfully', eco });
-    } catch (error: any) {
-        res.status(400).json({ error: error.message || 'Failed to create product ECO' });
-    }
-};
-
-export const createBOMECO = async (req: AuthRequest, res: Response) => {
-    try {
-        const { bomId, title, notes, components } = req.body;
-        const userId = req.user!.userId;
-        const initialChanges = { notes, components };
-
-        const eco = await ecoService.createECO({
-            title,
-            type: ECOType.BOM,
-            createdById: userId,
-            bomId,
-            initialChanges
-        });
-
-        res.status(201).json({ message: 'BOM ECO created successfully', eco });
-    } catch (error: any) {
-        res.status(400).json({ error: error.message || 'Failed to create BOM ECO' });
-    }
-};
+// Legacy wrappers removed. Unified endpoint createECO is used instead.
 
 
 
@@ -227,9 +189,9 @@ export const getECOById = async (req: AuthRequest, res: Response) => {
 
 /**
  * @swagger
- * /api/ecos/{id}/draft/product:
+ * /api/ecos/{id}/draft:
  *   patch:
- *     summary: Update product draft
+ *     summary: Update ECO Draft (Unified)
  *     tags: [ECOs]
  *     security:
  *       - bearerAuth: []
@@ -252,74 +214,30 @@ export const getECOById = async (req: AuthRequest, res: Response) => {
  *                 type: number
  *               costPrice:
  *                 type: number
+ *               components:
+ *                 type: array
+ *               operations:
+ *                 type: array
+ *               notes:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Draft updated
  */
-export const updateProductDraft = async (req: AuthRequest, res: Response) => {
+export const updateDraft = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const changes = req.body;
         const userId = req.user!.userId;
 
-        const draft = await ecoService.updateProductDraft(id as string, changes, userId);
+        const eco = await ecoService.updateDraft(id as string, changes, userId);
         res.json({
-            message: 'Product draft updated successfully',
-            draft,
+            message: 'Draft updated successfully',
+            eco,
         });
     } catch (error: any) {
-        console.error('Update product draft error:', error);
-        res.status(400).json({ error: error.message || 'Failed to update product draft' });
-    }
-};
-
-/**
- * @swagger
- * /api/ecos/{id}/draft/bom:
- *   patch:
- *     summary: Update BOM draft
- *     tags: [ECOs]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               components:
- *                 type: array
- *                 items:
- *                   type: object
- *               operations:
- *                 type: array
- *                 items:
- *                   type: object
- *     responses:
- *       200:
- *         description: Draft updated
- */
-export const updateBOMDraft = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const { components = [], operations = [] } = req.body;
-        const userId = req.user!.userId;
-
-        const draft = await ecoService.updateBOMDraft(id as string, components, operations, userId);
-        res.json({
-            message: 'BOM draft updated successfully',
-            draft,
-        });
-    } catch (error: any) {
-        console.error('Update BOM draft error:', error);
-        res.status(400).json({ error: error.message || 'Failed to update BOM draft' });
+        console.error('Update draft error:', error);
+        res.status(400).json({ error: error.message || 'Failed to update draft' });
     }
 };
 

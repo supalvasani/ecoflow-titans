@@ -45,7 +45,7 @@ class ECOService {
      * Create Unified ECO
      */
     async createECO(token: string, data: any): Promise<{ eco: ECO }> {
-        return this.request<{ eco: ECO }>('/api/ecos/create', token, {
+        return this.request<{ eco: ECO }>('/api/ecos', token, {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -84,20 +84,10 @@ class ECOService {
     }
 
     /**
-     * Update Product Draft
+     * Update ECO Draft (Unified)
      */
-    async updateProductDraft(token: string, ecoId: string, changes: { name?: string; salePrice?: number; costPrice?: number }): Promise<any> {
-        return this.request(`/api/ecos/${ecoId}/draft/product`, token, {
-            method: 'PATCH',
-            body: JSON.stringify(changes),
-        });
-    }
-
-    /**
-     * Update BOM Draft
-     */
-    async updateBOMDraft(token: string, ecoId: string, changes: { components?: any[]; operations?: any[] }): Promise<any> {
-        return this.request(`/api/ecos/${ecoId}/draft/bom`, token, {
+    async updateDraft(token: string, ecoId: string, changes: any): Promise<any> {
+        return this.request(`/api/ecos/${ecoId}/draft`, token, {
             method: 'PATCH',
             body: JSON.stringify(changes),
         });
@@ -163,7 +153,7 @@ class ECOService {
      * Add Draft Attachment
      */
     async addDraftAttachment(token: string, ecoId: string, filename: string, url: string, action: string): Promise<any> {
-        return this.request(`/api/ecos/${ecoId}/draft/attachment`, token, {
+        return this.request(`/api/ecos/${ecoId}/draft/attachments`, token, {
             method: 'POST',
             body: JSON.stringify({ filename, url, action }),
         });

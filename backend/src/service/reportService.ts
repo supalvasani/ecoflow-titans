@@ -135,9 +135,25 @@ export const getActiveMatrix = async () => {
     };
 };
 
+export const getArchivedProducts = async () => {
+    return db.query.productVersions.findMany({
+        where: eq(schema.productVersions.status, 'ARCHIVED'),
+        with: {
+            product: {
+                columns: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+        orderBy: [desc(schema.productVersions.createdAt)],
+    });
+};
+
 export const reportService = {
     getECOHistory,
     getProductVersions,
     getBOMHistory,
+    getArchivedProducts,
     getActiveMatrix,
 };
