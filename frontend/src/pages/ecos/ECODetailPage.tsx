@@ -63,7 +63,7 @@ export default function ECODetailPage() {
         if (!token || !eco || !draftValues) return;
         try {
             setIsSaving(true);
-            await ecoService.updateProductDraft(token, eco.id, draftValues);
+            await ecoService.updateDraft(token, eco.id, draftValues);
             // Reload to get fresh state
             await fetchECO();
         } catch (err) {
@@ -76,6 +76,9 @@ export default function ECODetailPage() {
 
     const handleAction = async (action: 'submit' | 'approve' | 'reject' | 'apply' | 'validate') => {
         if (!token || !eco) return;
+
+        // Clear any previous error before attempting a new action
+        setError(null);
 
         // If rejecting, show dialog first
         if (action === 'reject' && !showRejectDialog) {
@@ -129,7 +132,9 @@ export default function ECODetailPage() {
     const isEngineerOrAdmin = user?.role === Role.ENGINEERING_USER || user?.role === Role.ADMIN;
 
     // Actions Logic - Engineers can Save Draft or Submit for Review
-    const canEdit = (stage === 'DRAFT' || stage === 'WIP' || stage === 'UNDER REVIEW') && isEngineerOrAdmin;
+    // canEdit only applies to the Draft stage to match backend validateECOEdit() which
+    // rejects edits on any stage other than the initial/draft stage.
+    const canEdit = stage === 'DRAFT' && isEngineerOrAdmin;
     const canSubmit = (stage === 'DRAFT' || stage === 'WIP') && isEngineerOrAdmin;
 
     // Check if approval is required (either by stage or by admin flag)
@@ -347,11 +352,11 @@ export default function ECODetailPage() {
                     </Card>
                 )}
 
-                {/* BOM Draft Editor */}
                 {eco.type === ECOType.BOM && eco.bomDraft && (
                     <BOMDraftEditor
                         ecoId={eco.id}
                         initialComponents={eco.bomDraft?.draftComponents || []}
+                        initialOperations={eco.bomDraft?.draftOperations || []}
                         canEdit={canEdit}
                         onSave={fetchECO}
                         token={token!}
@@ -375,12 +380,13 @@ export default function ECODetailPage() {
                 )}
 
                 {/* BOM Change Summary */}
-                {(eco.type === ECOType.BOM || eco.type === ECOType.BOM_CHANGE) && eco.bomDraft?.draftComponents && (
+                {eco.type === ECOType.BOM && eco.bomDraft?.draftComponents && (
                     <BOMChangesSummary
                         components={eco.bomDraft.draftComponents.map((c) => ({
                             name: c.componentVersion?.product?.name || 'Unknown',
                             quantity: c.quantity,
-                            action: 'ADD' as const,
+                            // Map backend 'DELETE' to the component's expected 'REMOVE' value
+                            action: (c.action === 'DELETE' ? 'REMOVE' : (c.action as 'ADD' | 'UPDATE' | 'REMOVE')) || 'ADD',
                             partNumber: c.componentVersion?.product?.name || ''
                         }))}
                     />

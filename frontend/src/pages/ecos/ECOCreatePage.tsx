@@ -86,7 +86,7 @@ export default function ECOCreatePage() {
             if (formData.type === ECOType.PRODUCT && !formData.productId) {
                 throw new Error('Product is required for Product ECO');
             }
-            if ((formData.type === ECOType.BOM || formData.type === ECOType.BOM_CHANGE) && !formData.bomId) {
+            if (formData.type === ECOType.BOM && !formData.bomId) {
                 throw new Error('BOM is required');
             }
 
@@ -170,7 +170,6 @@ export default function ECOCreatePage() {
                                     >
                                         <option value={ECOType.PRODUCT}>Product</option>
                                         <option value={ECOType.BOM}>BOM</option>
-                                        <option value={ECOType.BOM_CHANGE}>BOM Changes</option>
                                     </select>
                                 </div>
 

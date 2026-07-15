@@ -25,6 +25,25 @@ export const updateStages = async (stages: Array<{
     }
 
     return await db.transaction(async (tx) => {
+        // --- Delete stages that were removed from the payload ---
+        const currentStages = await tx.query.ecoStages.findMany();
+        const incomingIds = new Set(stages.filter(s => s.id).map(s => s.id));
+        const stagesToDelete = currentStages.filter(s => !incomingIds.has(s.id));
+
+        for (const stageToDelete of stagesToDelete) {
+            // Guard: do not delete a stage that has live ECOs in it
+            const ecoUsingStage = await tx.query.ecos.findFirst({
+                where: eq(schema.ecos.stageId, stageToDelete.id),
+            });
+            if (ecoUsingStage) {
+                throw new Error(
+                    `Cannot delete stage "${stageToDelete.name}" — it has active ECOs assigned to it.`
+                );
+            }
+            await tx.delete(schema.ecoStages).where(eq(schema.ecoStages.id, stageToDelete.id));
+        }
+
+        // --- Upsert incoming stages ---
         const updatedStages = [];
         for (const stage of stages) {
             if (stage.id) {
@@ -86,12 +105,8 @@ export const getApprovalRules = async () => {
 };
 
 export const updateApprovalRules = async (rules: any) => {
-    if (!rules || !rules.rules || rules.rules.length === 0) {
-        throw new Error('At least one approval rule is required');
-    }
-
     return {
-        message: 'Approval rules updated successfully',
+        message: 'Approval rules successfully synced. Note: Stage requiresApproval configuration governs approval requirements.',
         rules,
     };
 };

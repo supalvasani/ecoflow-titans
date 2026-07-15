@@ -4,6 +4,7 @@ import {
     getProductVersions,
     getBOMHistory,
     getActiveMatrix,
+    getArchivedProducts,
 } from '../controllers/reportController.js';
 import { authenticate, requireRole } from '../middlewares/authMiddleware.js';
 
@@ -15,6 +16,7 @@ const requireReportAccess = requireRole('ADMIN', 'ENGINEERING_USER', 'APPROVER')
 router.get('/eco-history', authenticate, requireReportAccess, getECOHistory);
 router.get('/product-versions', authenticate, requireReportAccess, getProductVersions);
 router.get('/bom-history', authenticate, requireReportAccess, getBOMHistory);
+router.get('/archived-products', authenticate, requireReportAccess, getArchivedProducts);
 router.get('/active-matrix', authenticate, requireReportAccess, getActiveMatrix);
 
 export default router;

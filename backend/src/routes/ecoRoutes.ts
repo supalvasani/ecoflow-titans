@@ -1,12 +1,9 @@
 import { Router } from 'express';
 import {
     createECO,
-    createProductECO,
-    createBOMECO,
     getECOs,
     getECOById,
-    updateProductDraft,
-    updateBOMDraft,
+    updateDraft,
     addDraftAttachment,
     submitForReview,
     approveECO,
@@ -16,33 +13,26 @@ import {
     applyECO,
     setMandatoryApproval,
 } from '../controllers/ecoController.js';
-import { authenticate, requireRole, requireApprover, requireAdmin } from '../middlewares/authMiddleware.js';
+import { authenticate, requireRole, requireApprover, requireAdmin, requireEngineerOrAdmin } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
 // Primary Unified ECO Creation Path
 router.post('/', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createECO);
-router.post('/create', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createECO);
-
-// Backward Compatibility Wrappers (Product & BOM typed creation)
-router.post('/product', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createProductECO);
-router.post('/bom', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), createBOMECO);
 
 // ECO Listing & Statistics
+// NOTE: /statistics MUST remain before /:id to prevent Express routing it as an ID lookup
 router.get('/', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), getECOs);
 router.get('/statistics', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), getECOStatistics);
 router.get('/:id', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), getECOById);
 
 // Draft Editing (Draft Stage Only)
-router.patch('/:id/draft/product', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), updateProductDraft);
-router.patch('/:id/draft/bom', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), updateBOMDraft);
-router.post('/:id/draft/attachment', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), addDraftAttachment);
-router.post('/:id/draft/attachments', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), addDraftAttachment);
+router.patch('/:id/draft', authenticate, requireEngineerOrAdmin(), updateDraft);
+router.post('/:id/draft/attachments', authenticate, requireEngineerOrAdmin(), addDraftAttachment);
 
 // Workflow Transitions
 router.post('/:id/submit', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), submitForReview);
-router.post('/:id/advance', authenticate, requireApprover(), validateECO);
-router.post('/:id/validate', authenticate, requireApprover(), validateECO);
+router.post('/:id/validate', authenticate, requireRole('ENGINEERING_USER', 'APPROVER', 'ADMIN'), validateECO);
 router.post('/:id/approve', authenticate, requireApprover(), approveECO);
 router.post('/:id/reject', authenticate, requireApprover(), rejectECO);
 router.post('/:id/apply', authenticate, requireAdmin(), applyECO);

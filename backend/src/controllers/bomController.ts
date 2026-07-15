@@ -94,3 +94,41 @@ export const getBOMVersionById = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch BOM version' });
     }
 };
+
+export const getBOMVersionComponents = async (req: AuthRequest, res: Response) => {
+    try {
+        const { versionId } = req.params;
+        const userRole = req.user!.role;
+
+        const version = await bomService.getBOMVersionById(versionId as string, userRole);
+        res.json({ components: version.components || [] });
+    } catch (error: any) {
+        if (error.statusCode === 403) {
+            return res.status(403).json({ error: error.message });
+        }
+        if (error.message === 'BOM version not found') {
+            return res.status(404).json({ error: error.message });
+        }
+        console.error('Get BOM version components error:', error);
+        res.status(500).json({ error: 'Failed to fetch BOM version components' });
+    }
+};
+
+export const getBOMVersionOperations = async (req: AuthRequest, res: Response) => {
+    try {
+        const { versionId } = req.params;
+        const userRole = req.user!.role;
+
+        const version = await bomService.getBOMVersionById(versionId as string, userRole);
+        res.json({ operations: version.operations || [] });
+    } catch (error: any) {
+        if (error.statusCode === 403) {
+            return res.status(403).json({ error: error.message });
+        }
+        if (error.message === 'BOM version not found') {
+            return res.status(404).json({ error: error.message });
+        }
+        console.error('Get BOM version operations error:', error);
+        res.status(500).json({ error: 'Failed to fetch BOM version operations' });
+    }
+};

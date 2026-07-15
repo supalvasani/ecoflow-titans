@@ -136,3 +136,25 @@ export const getActiveMatrix = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch active matrix' });
     }
 };
+
+/**
+ * @swagger
+ * /api/reports/archived-products:
+ *   get:
+ *     summary: Retrieve archived products versions list
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of archived products versions
+ */
+export const getArchivedProducts = async (req: AuthRequest, res: Response) => {
+    try {
+        const archived = await reportService.getArchivedProducts();
+        res.json({ archived });
+    } catch (error: any) {
+        console.error('Get archived products error:', error);
+        res.status(500).json({ error: 'Failed to fetch archived products' });
+    }
+};

@@ -6,6 +6,8 @@ import {
     getBOMVersions,
     getActiveVersion,
     getBOMVersionById,
+    getBOMVersionComponents,
+    getBOMVersionOperations,
 } from '../controllers/bomController.js';
 import { authenticate, requireEngineerOrAdmin } from '../middlewares/authMiddleware.js';
 
@@ -19,6 +21,8 @@ router.get('/', authenticate, getBOMs);
 router.get('/versions/:versionId', authenticate, getBOMVersionById);
 router.get('/:id/versions', authenticate, requireEngineerOrAdmin(), getBOMVersions);
 router.get('/:id/active', authenticate, getActiveVersion);
+router.get('/:id/versions/:versionId/components', authenticate, getBOMVersionComponents);
+router.get('/:id/versions/:versionId/operations', authenticate, getBOMVersionOperations);
 
 // Generic ID route
 router.get('/:id', authenticate, getBOMById);

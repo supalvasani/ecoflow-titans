@@ -10,6 +10,9 @@ export class ProductService {
         if (!name || salePrice === undefined || costPrice === undefined || salePrice === null || costPrice === null) {
             throw new Error('Name, sale price, and cost price are required');
         }
+        if (salePrice < 0 || costPrice < 0) {
+            throw new Error('Prices cannot be negative');
+        }
 
         const productId = crypto.randomUUID();
         const versionId = crypto.randomUUID();

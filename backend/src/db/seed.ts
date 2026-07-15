@@ -160,6 +160,73 @@ async function main() {
         { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, name: 'Full Burn-in & Discharge Testing', timeMinutes: 60, workCenter: 'Burn-in Chamber 2' },
     ]).onConflictDoNothing();
 
+    console.log('🪵 Seeding Scenario 1: Wooden Table...');
+    const woodenTableId = crypto.randomUUID();
+    const legId = crypto.randomUUID();
+    const topId = crypto.randomUUID();
+    const woodScrewId = crypto.randomUUID();
+    const varnishId = crypto.randomUUID();
+
+    await db.insert(schema.products).values([
+        { id: woodenTableId, name: 'Wooden Table' },
+        { id: legId, name: 'Wooden Legs' },
+        { id: topId, name: 'Wooden Top' },
+        { id: woodScrewId, name: 'Screws (M4 Wood)' },
+        { id: varnishId, name: 'Varnish Bottle' },
+    ]).onConflictDoNothing();
+
+    const tableV1Id = crypto.randomUUID();
+    const legV1Id = crypto.randomUUID();
+    const topV1Id = crypto.randomUUID();
+    const woodScrewV1Id = crypto.randomUUID();
+    const varnishV1Id = crypto.randomUUID();
+
+    await db.insert(schema.productVersions).values([
+        { id: tableV1Id, productId: woodenTableId, version: 1, salePrice: '250.00', costPrice: '100.00', status: 'ACTIVE', isCurrent: true },
+        { id: legV1Id, productId: legId, version: 1, salePrice: '15.00', costPrice: '5.00', status: 'ACTIVE', isCurrent: true },
+        { id: topV1Id, productId: topId, version: 1, salePrice: '80.00', costPrice: '30.00', status: 'ACTIVE', isCurrent: true },
+        { id: woodScrewV1Id, productId: woodScrewId, version: 1, salePrice: '0.15', costPrice: '0.05', status: 'ACTIVE', isCurrent: true },
+        { id: varnishV1Id, productId: varnishId, version: 1, salePrice: '12.00', costPrice: '4.00', status: 'ACTIVE', isCurrent: true },
+    ]).onConflictDoNothing();
+
+    const tableBomId = crypto.randomUUID();
+    const tableBomV1Id = crypto.randomUUID();
+
+    await db.insert(schema.boms).values({ id: tableBomId, productId: woodenTableId }).onConflictDoNothing();
+    await db.insert(schema.bomVersions).values({
+        id: tableBomV1Id,
+        bomId: tableBomId,
+        productVersionId: tableV1Id,
+        version: 1,
+        status: 'ACTIVE',
+        isCurrent: true,
+    }).onConflictDoNothing();
+
+    await db.insert(schema.bomComponents).values([
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: legV1Id, quantity: 4 },
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: topV1Id, quantity: 1 },
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: woodScrewV1Id, quantity: 12 },
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: varnishV1Id, quantity: 1 },
+    ]).onConflictDoNothing();
+
+    await db.insert(schema.bomOperations).values([
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Assembly', timeMinutes: 60, workCenter: 'Assembly Shop' },
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Painting', timeMinutes: 30, workCenter: 'Paint Shop' },
+        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Packing', timeMinutes: 20, workCenter: 'Shipping Dept' },
+    ]).onConflictDoNothing();
+
+    console.log('📱 Seeding Scenario 2: iPhone 17 Pricing Update...');
+    const iphoneId = crypto.randomUUID();
+    await db.insert(schema.products).values({ id: iphoneId, name: 'iPhone 17 Pro' }).onConflictDoNothing();
+
+    const iphoneV1Id = crypto.randomUUID();
+    const iphoneV2Id = crypto.randomUUID();
+
+    await db.insert(schema.productVersions).values([
+        { id: iphoneV1Id, productId: iphoneId, version: 1, salePrice: '999.00', costPrice: '450.00', status: 'ARCHIVED', isCurrent: false },
+        { id: iphoneV2Id, productId: iphoneId, version: 2, salePrice: '1099.00', costPrice: '480.00', status: 'ACTIVE', isCurrent: true },
+    ]).onConflictDoNothing();
+
     console.log('✅ BOMs and Operations created for all products\n');
 
     console.log('✅ Seed completed successfully!');
