@@ -119,6 +119,13 @@ export const getActiveMatrix = async () => {
                                     version: true,
                                     productId: true,
                                 },
+                                with: {
+                                    product: {
+                                        columns: {
+                                            name: true,
+                                        },
+                                    },
+                                },
                             },
                         },
                     },

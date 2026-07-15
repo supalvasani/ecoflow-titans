@@ -227,7 +227,58 @@ async function main() {
         { id: iphoneV2Id, productId: iphoneId, version: 2, salePrice: '1099.00', costPrice: '480.00', status: 'ACTIVE', isCurrent: true },
     ]).onConflictDoNothing();
 
-    console.log('✅ BOMs and Operations created for all products\n');
+    console.log('📝 Seeding Sample ECOs...');
+    await db.insert(schema.ecos).values([
+        {
+            id: crypto.randomUUID(),
+            title: 'Upgrade EcoFlow Delta Pro Battery Capacity',
+            type: 'PRODUCT',
+            createdById: eng1Id,
+            assigneeId: approverId,
+            stageId: 'stage-review',
+            productVersionId: deltaV2Id,
+            draftProductId: deltaProId,
+            draftName: 'EcoFlow Delta Pro Max',
+            draftSalePrice: '3999.00',
+            draftCostPrice: '1850.00',
+        },
+        {
+            id: crypto.randomUUID(),
+            title: 'iPhone 17 Pro Price Adjustment',
+            type: 'PRODUCT',
+            createdById: eng2Id,
+            assigneeId: approverId,
+            stageId: 'stage-approved',
+            productVersionId: iphoneV2Id,
+            draftProductId: iphoneId,
+            draftName: 'iPhone 17 Pro',
+            draftSalePrice: '1099.00',
+            draftCostPrice: '480.00',
+        },
+        {
+            id: crypto.randomUUID(),
+            title: 'Wooden Table Structural Screw Upgrade',
+            type: 'BOM_CHANGE',
+            createdById: eng1Id,
+            assigneeId: eng1Id,
+            stageId: 'stage-draft',
+            bomVersionId: tableBomV1Id,
+            draftBomId: tableBomId,
+            draftNotes: 'Replacing standard wood screws with reinforced M4 screws.',
+        },
+        {
+            id: crypto.randomUUID(),
+            title: 'Inverter Main Board Assembly Standard Modernization',
+            type: 'BOM',
+            createdById: eng2Id,
+            assigneeId: opsId,
+            stageId: 'stage-implemented',
+            bomVersionId: invBomV1Id,
+            draftBomId: invBomId,
+        },
+    ]).onConflictDoNothing();
+
+    console.log('✅ BOMs, Operations, and sample ECOs created for all products\n');
 
     console.log('✅ Seed completed successfully!');
 }

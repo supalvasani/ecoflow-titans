@@ -38,7 +38,7 @@ export const ApproverDashboard = () => {
             // Calculate counts from statistics - Using exact DB stage names
             const pending = statsArray.find(s => s.stageName === 'Under Review')?.count || 0;
             const approved = statsArray.find(s => s.stageName === 'Approved')?.count || 0;
-            const rejected = 0; // No 'Rejected' stage in DB
+            const rejected = statsArray.find(s => s.stageName === 'Rejected')?.count || 0;
             const total = statsArray.reduce((sum, s) => sum + s.count, 0);
 
             setStats({ pending, approved, rejected, total });

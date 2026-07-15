@@ -45,14 +45,29 @@ export const AdminDashboard = () => {
 
     // Calculate metrics
     const totalECOs = ecos.length;
-    const draftECOs = ecos.filter(e => e.stage.name.toUpperCase() === 'DRAFT' || e.stage.name.toUpperCase() === 'WIP').length;
-    const pendingReviewECOs = ecos.filter(e => e.stage.name.toUpperCase() === 'PENDING_REVIEW').length;
-    const approvedECOs = ecos.filter(e => e.stage.name.toUpperCase() === 'APPROVED').length;
-    const rejectedECOs = ecos.filter(e => e.stage.name.toUpperCase() === 'REJECTED').length;
-    const appliedECOs = ecos.filter(e => e.stage.name.toUpperCase() === 'APPLIED').length;
+    const draftECOs = ecos.filter(e => {
+        const stage = (e.stage?.name || '').toUpperCase();
+        return stage === 'DRAFT' || stage === 'WIP';
+    }).length;
+    const pendingReviewECOs = ecos.filter(e => {
+        const stage = (e.stage?.name || '').toUpperCase();
+        return stage === 'PENDING_REVIEW' || stage === 'UNDER REVIEW';
+    }).length;
+    const approvedECOs = ecos.filter(e => {
+        const stage = (e.stage?.name || '').toUpperCase();
+        return stage === 'APPROVED';
+    }).length;
+    const rejectedECOs = ecos.filter(e => {
+        const stage = (e.stage?.name || '').toUpperCase();
+        return stage === 'REJECTED';
+    }).length;
+    const appliedECOs = ecos.filter(e => {
+        const stage = (e.stage?.name || '').toUpperCase();
+        return stage === 'APPLIED' || stage === 'IMPLEMENTED';
+    }).length;
 
     const totalProducts = products.length;
-    const activeProducts = products.filter(p => p.status === 'ACTIVE').length;
+    const activeProducts = products.filter(p => p.versions?.some((v: any) => v.status === 'ACTIVE' && v.isCurrent)).length;
     const totalBOMs = boms.length;
 
     return (

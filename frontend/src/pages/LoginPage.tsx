@@ -1,5 +1,5 @@
 // Login Page - EcoFlow Design System
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getRoleBasedPath } from '../utils/routing';
@@ -15,10 +15,12 @@ export const LoginPage = () => {
     const navigate = useNavigate();
 
     // Redirect if already logged in
-    if (user) {
-        const redirectPath = getRoleBasedPath(user.role);
-        navigate(redirectPath, { replace: true });
-    }
+    useEffect(() => {
+        if (user) {
+            const redirectPath = getRoleBasedPath(user.role);
+            navigate(redirectPath, { replace: true });
+        }
+    }, [user, navigate]);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
