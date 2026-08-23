@@ -1,12 +1,12 @@
-// Authentication Context for EcoFlow
+// Authentication Context for SynchroShift
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, AuthContextType } from '../types/auth';
 import { apiService } from '../services/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = 'ecoflow_token';
-const USER_KEY = 'ecoflow_user';
+const TOKEN_KEY = 'synchroshift_token';
+const USER_KEY = 'synchroshift_user';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);

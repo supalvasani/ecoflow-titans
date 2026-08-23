@@ -61,7 +61,7 @@ export const LoginPage = () => {
                 <div className="bg-surface border border-border rounded p-8">
                     {/* Logo/Branding */}
                     <div className="mb-6">
-                        <h1 className="text-page-title text-text-primary">EcoFlow</h1>
+                        <h1 className="text-page-title text-text-primary">SynchroShift</h1>
                         <p className="text-meta mt-2">Engineering Change Order System</p>
                     </div>
 
@@ -128,7 +128,7 @@ export const LoginPage = () => {
 
                 {/* Footer */}
                 <p className="text-xs text-text-muted text-center mt-6">
-                    © 2026 EcoFlow. All rights reserved.
+                    © 2026 SynchroShift. All rights reserved.
                 </p>
             </div>
         </div>

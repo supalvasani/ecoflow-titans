@@ -4,12 +4,12 @@ const options: swaggerJsdoc.Options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'EcoFlow Titans API',
+            title: 'SynchroShift API',
             version: '1.0.0',
-            description: 'API documentation for EcoFlow Titans - Engineering Change Order Management System',
+            description: 'API documentation for SynchroShift - Engineering Change Order Management System',
             contact: {
-                name: 'EcoFlow Titans Team',
-                email: 'support@ecoflow.com',
+                name: 'SynchroShift Team',
+                email: 'support@synchroshift.com',
             },
         },
         servers: [
@@ -65,7 +65,7 @@ const options: swaggerJsdoc.Options = {
                         email: {
                             type: 'string',
                             format: 'email',
-                            example: 'admin@ecoflow.com',
+                            example: 'admin@synchroshift.com',
                         },
                         password: {
                             type: 'string',

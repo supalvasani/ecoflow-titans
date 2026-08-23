@@ -41,11 +41,11 @@ async function main() {
     const opsId = crypto.randomUUID();
 
     await db.insert(schema.users).values([
-        { id: adminId, email: 'admin@ecoflow.com', password: pass, name: 'Admin User', role: 'ADMIN' },
-        { id: eng1Id, email: 'engineer1@ecoflow.com', password: pass, name: 'Alice Engineer', role: 'ENGINEERING_USER' },
-        { id: eng2Id, email: 'engineer2@ecoflow.com', password: pass, name: 'Bob Engineer', role: 'ENGINEERING_USER' },
-        { id: approverId, email: 'approver@ecoflow.com', password: pass, name: 'Carol Manager', role: 'APPROVER' },
-        { id: opsId, email: 'ops@ecoflow.com', password: pass, name: 'Dave Ops', role: 'OPERATIONS_USER' },
+        { id: adminId, email: 'admin@synchroshift.com', password: pass, name: 'Admin User', role: 'ADMIN' },
+        { id: eng1Id, email: 'engineer1@synchroshift.com', password: pass, name: 'Alice Engineer', role: 'ENGINEERING_USER' },
+        { id: eng2Id, email: 'engineer2@synchroshift.com', password: pass, name: 'Bob Engineer', role: 'ENGINEERING_USER' },
+        { id: approverId, email: 'approver@synchroshift.com', password: pass, name: 'Carol Manager', role: 'APPROVER' },
+        { id: opsId, email: 'ops@synchroshift.com', password: pass, name: 'Dave Ops', role: 'OPERATIONS_USER' },
     ]).onConflictDoNothing();
     console.log('✅ Users created\n');
 
@@ -66,7 +66,7 @@ async function main() {
     const screwId = crypto.randomUUID();
 
     await db.insert(schema.products).values([
-        { id: deltaProId, name: 'EcoFlow Delta Pro' },
+        { id: deltaProId, name: 'SynchroShift Power Hub' },
         { id: batteryModuleId, name: 'LFP Battery Module 48V' },
         { id: inverterId, name: 'Inverter Main Board' },
         { id: screwId, name: 'M4 Screw Stainless' },
@@ -231,14 +231,14 @@ async function main() {
     await db.insert(schema.ecos).values([
         {
             id: crypto.randomUUID(),
-            title: 'Upgrade EcoFlow Delta Pro Battery Capacity',
+            title: 'Upgrade SynchroShift Power Hub Battery Capacity',
             type: 'PRODUCT',
             createdById: eng1Id,
             assigneeId: approverId,
             stageId: 'stage-review',
             productVersionId: deltaV2Id,
             draftProductId: deltaProId,
-            draftName: 'EcoFlow Delta Pro Max',
+            draftName: 'SynchroShift Power Hub Max',
             draftSalePrice: '3999.00',
             draftCostPrice: '1850.00',
         },

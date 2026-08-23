@@ -36,7 +36,7 @@ app.use(cookieParser());
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'EcoFlow Titans API Docs',
+  customSiteTitle: 'SynchroShift API Docs',
 }));
 
 // Routes
@@ -64,5 +64,5 @@ app.get('/test-db', async (req: express.Request, res: express.Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`SynchroShift Server running on http://localhost:${PORT}`);
 });

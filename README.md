@@ -1,4 +1,4 @@
-# ECOFlow — Engineering Change Order System
+# SynchroShift — Engineering Change Order & PLM System
 
 An Engineering Change Order (ECO) Management System that enables controlled, versioned, approval-driven changes to **Products** and **Bills of Materials (BOMs)**. No one ever edits master data directly — every change is Proposed → Reviewed → Approved → Applied.
 
@@ -67,10 +67,10 @@ The **Version Update** toggle is an attribute of every ECO — when enabled, a n
 
 | Email | Password | Role |
 |-------|----------|------|
-| `admin@ecoflow.com` | `admin123` | ADMIN |
-| `engineer@ecoflow.com` | `eng123` | ENGINEERING_USER |
-| `approver@ecoflow.com` | `approver123` | APPROVER |
-| `ops@ecoflow.com` | `ops123` | OPERATIONS_USER |
+| `admin@synchroshift.com` | `admin123` | ADMIN |
+| `engineer1@synchroshift.com` | `admin123` | ENGINEERING_USER |
+| `approver@synchroshift.com` | `admin123` | APPROVER |
+| `ops@synchroshift.com` | `admin123` | OPERATIONS_USER |
 
 ---
 

@@ -1,4 +1,4 @@
-// Auth Types for EcoFlow
+// Auth Types for SynchroShift
 
 export const Role = {
     ENGINEERING_USER: 'ENGINEERING_USER',

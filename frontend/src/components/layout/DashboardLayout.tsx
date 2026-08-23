@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
     children: ReactNode;
 }
 
-const EcoFlowLogo = ({ className = "" }: { className?: string }) => (
+const SynchroShiftLogo = ({ className = "" }: { className?: string }) => (
     <svg viewBox="0 0 40 40" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect width="40" height="40" rx="8" fill="url(#gradient)" />
         <path d="M12 14h16M12 20h12M12 26h16" stroke="white" strokeWidth="3" strokeLinecap="round" />
@@ -106,9 +106,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     </Button>
 
                     <div className={`flex items-center gap-3 transition-all duration-300 ${isScrolled ? 'scale-95' : 'scale-100'}`}>
-                        <EcoFlowLogo className={`transition-all duration-300 ${isScrolled ? 'h-8 w-8' : 'h-10 w-10'}`} />
+                        <SynchroShiftLogo className={`transition-all duration-300 ${isScrolled ? 'h-8 w-8' : 'h-10 w-10'}`} />
                         <span className={`font-bold text-gray-900 transition-all duration-300 ${isScrolled ? 'text-lg' : 'text-xl'}`}>
-                            EcoFlow
+                            SynchroShift
                         </span>
                     </div>
                 </div>

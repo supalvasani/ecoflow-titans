@@ -48,7 +48,7 @@ async function request(method: string, path: string, token?: string, body?: any)
     return { status: res.status, data };
 }
 
-describe('ECOFlow End-to-End Acceptance & Critical Bug Fix Suite', () => {
+describe('SynchroShift End-to-End Acceptance Suite', () => {
     before(async () => {
         const app = express();
         app.use(cors());

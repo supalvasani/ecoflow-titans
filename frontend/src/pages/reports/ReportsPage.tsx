@@ -130,7 +130,7 @@ export default function ReportsPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Reports & Change History</h1>
-                        <p className="text-muted-foreground">Traceability dashboards for ECOFlow master data and workflows</p>
+                        <p className="text-muted-foreground">Traceability dashboards for SynchroShift master data and workflows</p>
                     </div>
                     <Button onClick={handleExportCSV} disabled={loading || error !== null}>
                         <Download className="mr-2 h-4 w-4" /> Export CSV
