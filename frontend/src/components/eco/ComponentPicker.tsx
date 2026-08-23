@@ -87,7 +87,7 @@ export function ComponentPicker({ isOpen, onClose, onSelect, token }: ComponentP
                                                     <div className="font-medium">{product.name}</div>
                                                     <div className="text-xs text-muted-foreground flex gap-2">
                                                         <span>Ver: {latestVersion ? latestVersion.version : 'N/A'}</span>
-                                                        {price && <span>${price}</span>}
+                                                        {price && <span>₹{price}</span>}
                                                     </div>
                                                 </div>
                                             </div>

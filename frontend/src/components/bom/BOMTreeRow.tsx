@@ -40,9 +40,9 @@ export const BOMTreeRow = ({ node, level }: BOMTreeRowProps) => {
                 </TableCell>
                 <TableCell>v{node.componentVersion?.version}</TableCell>
                 <TableCell>{node.quantity}</TableCell>
-                <TableCell>${node.componentVersion?.costPrice}</TableCell>
+                <TableCell>₹{node.componentVersion?.costPrice}</TableCell>
                 <TableCell className="font-bold">
-                    ${(node.quantity * (node.componentVersion?.costPrice || 0)).toFixed(2)}
+                    ₹{(node.quantity * (node.componentVersion?.costPrice || 0)).toFixed(2)}
                 </TableCell>
             </TableRow>
             {expanded && hasChildren && node.children.map((child: any) => (

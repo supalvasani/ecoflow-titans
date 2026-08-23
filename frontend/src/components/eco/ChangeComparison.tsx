@@ -16,7 +16,7 @@ export function ChangeComparison({ title, oldValue, newValue, type = 'text' }: C
 
         switch (type) {
             case 'currency':
-                return `$${Number(value).toFixed(2)}`;
+                return `₹${Number(value).toFixed(2)}`;
             case 'number':
                 return String(value);
             default:
@@ -121,7 +121,7 @@ export function ProductChangesSummary({ currentProduct, proposedChanges }: Produ
                                     <div>
                                         <div className="text-muted-foreground">Current Margin</div>
                                         <div className="font-bold text-blue-700">
-                                            ${(currentProduct.salePrice - currentProduct.costPrice).toFixed(2)}
+                                            ₹{(currentProduct.salePrice - currentProduct.costPrice).toFixed(2)}
                                             {' '}
                                             ({(((currentProduct.salePrice - currentProduct.costPrice) / currentProduct.salePrice) * 100).toFixed(1)}%)
                                         </div>
@@ -129,7 +129,7 @@ export function ProductChangesSummary({ currentProduct, proposedChanges }: Produ
                                     <div>
                                         <div className="text-muted-foreground">New Margin</div>
                                         <div className="font-bold text-green-700">
-                                            ${(newSalePrice - newCostPrice).toFixed(2)}
+                                            ₹{(newSalePrice - newCostPrice).toFixed(2)}
                                             {' '}
                                             ({(((newSalePrice - newCostPrice) / newSalePrice) * 100).toFixed(1)}%)
                                         </div>

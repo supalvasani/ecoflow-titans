@@ -266,8 +266,8 @@ export default function ReportsPage() {
                                                 <TableRow key={pv.id}>
                                                     <TableCell className="font-medium">{pv.product?.name}</TableCell>
                                                     <TableCell>v{pv.version}</TableCell>
-                                                    <TableCell>${pv.salePrice}</TableCell>
-                                                    <TableCell>${pv.costPrice}</TableCell>
+                                                    <TableCell>₹{pv.salePrice}</TableCell>
+                                                    <TableCell>₹{pv.costPrice}</TableCell>
                                                     <TableCell>
                                                         <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
                                                             pv.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'

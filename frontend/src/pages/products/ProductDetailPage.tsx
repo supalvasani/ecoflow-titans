@@ -131,11 +131,11 @@ export default function ProductDetailPage() {
                             <CardContent className="grid grid-cols-2 gap-6">
                                 <div className="space-y-1">
                                     <Label className="text-muted-foreground">Sale Price</Label>
-                                    <div className="text-2xl font-bold">${activeVersion.salePrice}</div>
+                                    <div className="text-2xl font-bold">₹{activeVersion.salePrice}</div>
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-muted-foreground">Cost Price</Label>
-                                    <div className="text-2xl font-bold text-gray-600">${activeVersion.costPrice}</div>
+                                    <div className="text-2xl font-bold text-gray-600">₹{activeVersion.costPrice}</div>
                                 </div>
                                 <div className="col-span-2 pt-4">
                                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
@@ -180,7 +180,7 @@ export default function ProductDetailPage() {
                                                         {v.status}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell>${v.salePrice}</TableCell>
+                                                <TableCell>₹{v.salePrice}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

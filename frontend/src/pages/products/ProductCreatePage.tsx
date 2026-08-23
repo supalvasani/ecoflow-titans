@@ -106,7 +106,7 @@ export default function ProductCreatePage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="salePrice">
-                                        Sale Price ($) <span className="text-red-500">*</span>
+                                        Sale Price (₹) <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="salePrice"
@@ -122,7 +122,7 @@ export default function ProductCreatePage() {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="costPrice">
-                                        Cost Price ($) <span className="text-red-500">*</span>
+                                        Cost Price (₹) <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="costPrice"

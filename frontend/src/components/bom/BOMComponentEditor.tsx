@@ -237,9 +237,9 @@ export const BOMComponentEditor: React.FC<BOMComponentEditorProps> = ({
                                             </div>
                                             <div className="text-sm text-gray-600">
                                                 Quantity: {comp.quantity} units ×{' '}
-                                                ${(comp.componentVersion?.costPrice || 0).toFixed(2)} ={' '}
+                                                ₹{(comp.componentVersion?.costPrice || 0).toFixed(2)} ={' '}
                                                 <span className="font-medium">
-                                                    ${((comp.componentVersion?.costPrice || 0) * comp.quantity).toFixed(2)}
+                                                    ₹{((comp.componentVersion?.costPrice || 0) * comp.quantity).toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
@@ -334,7 +334,7 @@ export const BOMComponentEditor: React.FC<BOMComponentEditorProps> = ({
                         <div className="flex justify-between items-center">
                             <span className="font-medium">Total Component Cost:</span>
                             <span className="text-lg font-bold text-blue-600">
-                                ${totalCost.toFixed(2)}
+                                ₹{totalCost.toFixed(2)}
                             </span>
                         </div>
                     </div>

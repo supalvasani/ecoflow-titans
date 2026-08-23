@@ -293,11 +293,11 @@ export default function ECODetailPage() {
                                         <Input value={eco.productDraft.product?.name || ''} disabled />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Sale Price ($)</Label>
+                                        <Label>Sale Price (₹)</Label>
                                         <Input value={eco.productDraft.product?.versions?.[0]?.salePrice || ''} disabled />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Cost Price ($)</Label>
+                                        <Label>Cost Price (₹)</Label>
                                         <Input value={eco.productDraft.product?.versions?.[0]?.costPrice || ''} disabled />
                                     </div>
                                 </div>
@@ -323,7 +323,7 @@ export default function ECODetailPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Sale Price ($)</Label>
+                                        <Label>Sale Price (₹)</Label>
                                         <Input
                                             type="number"
                                             step="0.01"
@@ -335,7 +335,7 @@ export default function ECODetailPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Cost Price ($)</Label>
+                                        <Label>Cost Price (₹)</Label>
                                         <Input
                                             type="number"
                                             step="0.01"

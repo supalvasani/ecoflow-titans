@@ -305,7 +305,7 @@ export function ECOCreationModal({
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <Label htmlFor="proposedSalePrice" className="text-xs">Proposed Sale Price ($)</Label>
+                                        <Label htmlFor="proposedSalePrice" className="text-xs">Proposed Sale Price (₹)</Label>
                                         <Input
                                             id="proposedSalePrice"
                                             type="number"
@@ -317,7 +317,7 @@ export function ECOCreationModal({
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="proposedCostPrice" className="text-xs">Proposed Cost Price ($)</Label>
+                                        <Label htmlFor="proposedCostPrice" className="text-xs">Proposed Cost Price (₹)</Label>
                                         <Input
                                             id="proposedCostPrice"
                                             type="number"

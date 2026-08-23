@@ -240,7 +240,7 @@ export default function BOMDetailPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-green-600">
-                                ${calculateTotalCost().toFixed(2)}
+                                ₹{calculateTotalCost().toFixed(2)}
                             </div>
                             <p className="text-xs text-muted-foreground">Material cost</p>
                         </CardContent>
@@ -279,15 +279,15 @@ export default function BOMDetailPage() {
                                             </TableCell>
                                             <TableCell>v{comp.componentVersion?.version}</TableCell>
                                             <TableCell>{comp.quantity}</TableCell>
-                                            <TableCell>${Number(comp.componentVersion?.costPrice || 0).toFixed(2)}</TableCell>
+                                            <TableCell>₹{Number(comp.componentVersion?.costPrice || 0).toFixed(2)}</TableCell>
                                             <TableCell className="text-right font-bold">
-                                                ${((comp.quantity || 0) * Number(comp.componentVersion?.costPrice || 0)).toFixed(2)}
+                                                ₹{((comp.quantity || 0) * Number(comp.componentVersion?.costPrice || 0)).toFixed(2)}
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                     <TableRow className="bg-muted/50 font-bold">
                                         <TableCell colSpan={4} className="text-right">Total Material Cost:</TableCell>
-                                        <TableCell className="text-right">${calculateTotalCost().toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">₹{calculateTotalCost().toFixed(2)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>

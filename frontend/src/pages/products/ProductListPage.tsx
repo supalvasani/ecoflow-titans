@@ -142,7 +142,7 @@ export default function ProductListPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>v{version}</TableCell>
-                                                <TableCell>${price}</TableCell>
+                                                <TableCell>₹{price}</TableCell>
                                                 <TableCell>
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeClass(status)}`}>
                                                         {status}
