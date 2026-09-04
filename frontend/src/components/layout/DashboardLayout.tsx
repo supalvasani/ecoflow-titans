@@ -98,7 +98,7 @@ export const DashboardLayout = ({ children, title, subtitle, action }: Dashboard
                             to="/"
                             icon={LayoutDashboard}
                             label="Dashboard"
-                            active={location.pathname === '/' || location.pathname === '/engineering' || location.pathname === '/approver' || location.pathname === '/operations' || location.pathname === '/admin'}
+                            active={location.pathname === '/' || location.pathname === '/merchandiser' || location.pathname === '/approver' || location.pathname === '/storefront' || location.pathname === '/admin'}
                         />
 
                         {/* 2. Catalog */}

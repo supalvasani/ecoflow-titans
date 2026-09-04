@@ -27,15 +27,15 @@ class CatalogItemService {
         return response.json();
     }
 
-    async getCatalogItems(token: string, includeArchived: boolean = false): Promise<{ catalogItems: CatalogItem[]; products?: CatalogItem[] }> {
+    async getCatalogItems(token: string, includeArchived: boolean = false): Promise<{ catalogItems: CatalogItem[] }> {
         return this.request(`/api/catalog-items?includeArchived=${includeArchived}`, token);
     }
 
-    async getCatalogItemById(token: string, id: string): Promise<{ catalogItem: CatalogItem; product?: CatalogItem }> {
+    async getCatalogItemById(token: string, id: string): Promise<{ catalogItem: CatalogItem }> {
         return this.request(`/api/catalog-items/${id}`, token);
     }
 
-    async createCatalogItem(token: string, data: CreateCatalogItemDTO): Promise<{ catalogItem: CatalogItem; product?: CatalogItem }> {
+    async createCatalogItem(token: string, data: CreateCatalogItemDTO): Promise<{ catalogItem: CatalogItem }> {
         return this.request('/api/catalog-items', token, {
             method: 'POST',
             body: JSON.stringify(data),
@@ -50,12 +50,12 @@ class CatalogItemService {
         return this.request(`/api/catalog-items/${id}/active`, token);
     }
 
-    async getContent(token: string, versionId: string): Promise<{ content: CatalogItemContent[]; attachments?: CatalogItemContent[] }> {
-        return this.request<{ content: CatalogItemContent[]; attachments?: CatalogItemContent[] }>(
+    async getContent(token: string, versionId: string): Promise<{ content: CatalogItemContent[] }> {
+        return this.request<{ content: CatalogItemContent[] }>(
             `/api/catalog-items/item/versions/${versionId}/content`,
             token
         ).catch(() =>
-            this.request<{ content: CatalogItemContent[]; attachments?: CatalogItemContent[] }>(
+            this.request<{ content: CatalogItemContent[] }>(
                 `/api/catalog-items/${versionId}/versions/${versionId}/content`,
                 token
             )

@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { catalogItemService } from '../../services/catalogItemService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 
-export default function ProductCreatePage() {
+export default function CatalogItemCreatePage() {
     const { token } = useAuth();
     const navigate = useNavigate();
 

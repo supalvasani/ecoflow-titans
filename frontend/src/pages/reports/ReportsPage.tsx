@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { reportService } from '../../services/reportService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
-import { Download, Layers, History, Trash2, Eye, ShieldCheck, AlertCircle, FileText } from 'lucide-react';
+import { Download, Layers, History, Trash2, ShieldCheck, AlertCircle, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 type TabType = 'ccr' | 'catalog-versions' | 'variant-history' | 'archived' | 'matrix';
@@ -85,7 +85,7 @@ export default function ReportsPage() {
         } else if (activeTab === 'catalog-versions') {
             headers = ['Catalog Item', 'Version', 'Sale Price', 'Cost Price', 'Status', 'Date Created'];
             rows = catalogVersions.map(pv => [
-                pv.product?.name || pv.catalogItem?.name || 'Unknown',
+                pv.catalogItem?.name || 'Unknown',
                 (pv.version || pv.versionString || '').toString(),
                 String(pv.salePrice || 0),
                 String(pv.costPrice || 0),
@@ -98,7 +98,7 @@ export default function ReportsPage() {
                 b.variantSetId || b.id || '',
                 (b.version || '').toString(),
                 (b.variants?.length || 0).toString(),
-                (b.channelRules?.length || b.operations?.length || 0).toString(),
+                (b.channelPublishRules?.length || 0).toString(),
                 b.status || '',
                 new Date(b.createdAt).toLocaleDateString()
             ]);
@@ -320,9 +320,9 @@ export default function ReportsPage() {
                                             return (
                                                 <tr key={v.id} className="hover:bg-stone-50/50">
                                                     <td className="py-2.5 px-4">
-                                                        <div className="font-medium text-ink">{v.product?.name || v.catalogItem?.name || 'Unknown'}</div>
+                                                        <div className="font-medium text-ink">{v.catalogItem?.name || 'Unknown'}</div>
                                                         <div className="font-mono text-[10px]" style={{ color: 'var(--ink-muted)' }}>
-                                                            {v.product?.sku || v.catalogItem?.sku || '—'}
+                                                            {v.catalogItem?.sku || '—'}
                                                         </div>
                                                     </td>
                                                     <td className="py-2.5 px-4 font-mono text-ink">v{v.version || v.versionString || '1.0'}</td>
@@ -363,7 +363,7 @@ export default function ReportsPage() {
                                                 <td className="py-2.5 px-4 font-mono text-ink">{b.variantSetId || b.id}</td>
                                                 <td className="py-2.5 px-4 font-mono text-ink">v{b.version || '1.0'}</td>
                                                 <td className="py-2.5 px-4 font-mono text-ink-muted">{b.variants?.length || 0}</td>
-                                                <td className="py-2.5 px-4 font-mono text-ink-muted">{b.channelRules?.length || 0}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink-muted">{b.channelPublishRules?.length || 0}</td>
                                                 <td className="py-2.5 px-4">
                                                     <span className="font-mono text-[10px] px-1.5 py-0.5 border" style={{ borderColor: 'var(--line)' }}>
                                                         {b.status}

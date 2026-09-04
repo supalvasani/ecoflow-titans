@@ -3,13 +3,13 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RootRedirect } from './components/RootRedirect';
 import { LoginPage } from './pages/LoginPage';
-import { EngineeringDashboard } from './pages/EngineeringDashboard';
+import { MerchandiserDashboard } from './pages/MerchandiserDashboard';
 import { ApproverDashboard } from './pages/ApproverDashboard';
-import { OperationsDashboard } from './pages/OperationsDashboard';
+import { StorefrontDashboard } from './pages/StorefrontDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
-import ProductListPage from './pages/products/ProductListPage';
-import ProductCreatePage from './pages/products/ProductCreatePage';
-import ProductDetailPage from './pages/products/ProductDetailPage';
+import CatalogItemListPage from './pages/catalog/CatalogItemListPage';
+import CatalogItemCreatePage from './pages/catalog/CatalogItemCreatePage';
+import CatalogItemDetailPage from './pages/catalog/CatalogItemDetailPage';
 import CCRListPage from './pages/ccrs/CCRListPage';
 import CCRCreatePage from './pages/ccrs/CCRCreatePage';
 import CCRDetailPage from './pages/ccrs/CCRDetailPage';
@@ -37,13 +37,9 @@ function App() {
             path="/merchandiser"
             element={
               <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
-                <EngineeringDashboard />
+                <MerchandiserDashboard />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/engineering"
-            element={<Navigate to="/merchandiser" replace />}
           />
 
           <Route
@@ -59,13 +55,9 @@ function App() {
             path="/storefront"
             element={
               <ProtectedRoute allowedRoles={[Role.STOREFRONT_VIEWER, Role.ADMIN]}>
-                <OperationsDashboard />
+                <StorefrontDashboard />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/operations"
-            element={<Navigate to="/storefront" replace />}
           />
 
           <Route
@@ -82,7 +74,7 @@ function App() {
             path="/products"
             element={
               <ProtectedRoute>
-                <ProductListPage />
+                <CatalogItemListPage />
               </ProtectedRoute>
             }
           />
@@ -90,7 +82,7 @@ function App() {
             path="/products/create"
             element={
               <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
-                <ProductCreatePage />
+                <CatalogItemCreatePage />
               </ProtectedRoute>
             }
           />
@@ -98,7 +90,7 @@ function App() {
             path="/products/new"
             element={
               <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
-                <ProductCreatePage />
+                <CatalogItemCreatePage />
               </ProtectedRoute>
             }
           />
@@ -106,7 +98,7 @@ function App() {
             path="/products/:id"
             element={
               <ProtectedRoute>
-                <ProductDetailPage />
+                <CatalogItemDetailPage />
               </ProtectedRoute>
             }
           />

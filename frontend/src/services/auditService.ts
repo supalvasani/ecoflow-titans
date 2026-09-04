@@ -27,7 +27,7 @@ class AuditService {
                 try {
                     const error = await response.json();
                     throw new Error(error.error || `API request failed with status ${response.status}`);
-                } catch (e) {
+                } catch (_e) {
                     throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
                 }
             } else {

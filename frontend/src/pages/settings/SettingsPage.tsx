@@ -142,9 +142,8 @@ export default function SettingsPage() {
                 <div className="border-b flex items-center gap-6 text-xs font-sans font-medium" style={{ borderColor: 'var(--line)' }}>
                     <button
                         onClick={() => { setActiveTab('stages'); setSuccessMessage(null); }}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
-                            activeTab === 'stages' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
-                        }`}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${activeTab === 'stages' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                            }`}
                         style={{
                             borderColor: activeTab === 'stages' ? 'var(--accent)' : 'transparent',
                             color: activeTab === 'stages' ? 'var(--accent)' : 'var(--ink-muted)',
@@ -156,9 +155,8 @@ export default function SettingsPage() {
 
                     <button
                         onClick={() => { setActiveTab('approval'); setSuccessMessage(null); }}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
-                            activeTab === 'approval' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
-                        }`}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${activeTab === 'approval' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                            }`}
                         style={{
                             borderColor: activeTab === 'approval' ? 'var(--accent)' : 'transparent',
                             color: activeTab === 'approval' ? 'var(--accent)' : 'var(--ink-muted)',

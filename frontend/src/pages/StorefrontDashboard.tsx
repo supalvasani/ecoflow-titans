@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { operationsService, type PublishTask } from '../services/operationsService';
+import { publishTaskService, type PublishTask } from '../services/publishTaskService';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { ClipboardList, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-export const OperationsDashboard = () => {
+export const StorefrontDashboard = () => {
     const { token } = useAuth();
     const [tasks, setTasks] = useState<PublishTask[]>([]);
     const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ export const OperationsDashboard = () => {
         if (!token) return;
         try {
             setLoading(true);
-            const data = await operationsService.getTasks(token);
+            const data = await publishTaskService.getTasks(token);
             setTasks(data);
             setError(null);
         } catch (err: any) {
@@ -34,7 +34,7 @@ export const OperationsDashboard = () => {
     const handleCompleteTask = async (taskId: string) => {
         if (!token) return;
         try {
-            await operationsService.completeTask(token, taskId);
+            await publishTaskService.completeTask(token, taskId);
             // Refresh list
             loadTasks();
         } catch (err: any) {

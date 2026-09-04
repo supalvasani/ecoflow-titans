@@ -31,7 +31,6 @@ export interface CatalogItemVersion {
     createdAt: string;
     catalogItem?: CatalogItem;
     content?: CatalogItemContent[];
-    attachments?: CatalogItemContent[]; // backward compat alias
 }
 
 export interface CatalogItem {
@@ -54,8 +53,3 @@ export interface CreateCatalogItemDTO {
     category?: string;
 }
 
-// Backward compatibility types
-export type Product = CatalogItem;
-export type ProductVersion = CatalogItemVersion;
-export type ProductAttachment = CatalogItemContent;
-export type CreateProductDTO = CreateCatalogItemDTO;

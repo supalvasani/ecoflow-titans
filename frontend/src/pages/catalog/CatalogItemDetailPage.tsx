@@ -7,7 +7,7 @@ import type { CatalogItem, CatalogItemVersion } from '../../types/catalogItem';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 
 
-export default function ProductDetailPage() {
+export default function CatalogItemDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { user, token } = useAuth();
     const navigate = useNavigate();

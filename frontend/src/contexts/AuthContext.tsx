@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const { user: fetchedUser } = await apiService.getMe(storedToken);
                     setToken(storedToken);
                     setUser(fetchedUser);
-                } catch (error) {
+                } catch (_error) {
                     // Token invalid, clear storage
                     localStorage.removeItem(TOKEN_KEY);
                     localStorage.removeItem(USER_KEY);

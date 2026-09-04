@@ -18,7 +18,6 @@ export const createCatalogItem = async (req: AuthRequest, res: Response) => {
         res.status(201).json({
             message: 'Catalog item created successfully',
             catalogItem,
-            product: catalogItem, // backward compat
         });
     } catch (error: any) {
         console.error('Create catalog item error:', error);
@@ -32,7 +31,7 @@ export const getCatalogItems = async (req: AuthRequest, res: Response) => {
         const includeArchived = req.query.includeArchived === 'true';
 
         const catalogItems = await catalogItemService.getCatalogItems(userRole, includeArchived);
-        res.json({ catalogItems, products: catalogItems });
+        res.json({ catalogItems });
     } catch (error: any) {
         console.error('Get catalog items error:', error);
         res.status(500).json({ error: 'Failed to fetch catalog items' });
@@ -45,7 +44,7 @@ export const getCatalogItemById = async (req: AuthRequest, res: Response) => {
         const userRole = req.user!.role;
 
         const catalogItem = await catalogItemService.getCatalogItemById(id as string, userRole);
-        res.json({ catalogItem, product: catalogItem });
+        res.json({ catalogItem });
     } catch (error: any) {
         if (error.message === 'CatalogItem not found' || error.message === 'Product not found') {
             return res.status(404).json({ error: error.message });
@@ -95,9 +94,4 @@ export const getContent = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Aliases for backwards compatibility
-export const createProduct = createCatalogItem;
-export const getProducts = getCatalogItems;
-export const getProductById = getCatalogItemById;
-export const getProductVersions = getCatalogItemVersions;
-export const getAttachments = getContent;
+

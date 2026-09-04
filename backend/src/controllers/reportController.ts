@@ -7,10 +7,7 @@ export const getCCRHistory = async (req: AuthRequest, res: Response) => {
         const filters: any = {};
 
         if (req.query.type) {
-            let t = req.query.type as string;
-            if (t === 'PRODUCT') t = 'CATALOG_ITEM';
-            if (t === 'BOM') t = 'VARIANT_SET';
-            filters.type = t;
+            filters.type = req.query.type as string;
         }
         if (req.query.stageId) {
             filters.stageId = req.query.stageId as string;
@@ -32,7 +29,7 @@ export const getCCRHistory = async (req: AuthRequest, res: Response) => {
 
 export const getCatalogItemVersions = async (req: AuthRequest, res: Response) => {
     try {
-        const catalogItemId = (req.query.catalogItemId || req.query.productId) as string | undefined;
+        const catalogItemId = req.query.catalogItemId as string | undefined;
         const versions = await reportService.getCatalogItemVersionHistory(catalogItemId);
         res.json({ versions });
     } catch (error: any) {
@@ -43,7 +40,7 @@ export const getCatalogItemVersions = async (req: AuthRequest, res: Response) =>
 
 export const getVariantSetHistory = async (req: AuthRequest, res: Response) => {
     try {
-        const variantSetId = (req.query.variantSetId || req.query.bomId) as string | undefined;
+        const variantSetId = req.query.variantSetId as string | undefined;
         const history = await reportService.getVariantSetHistory(variantSetId);
         res.json({ history });
     } catch (error: any) {

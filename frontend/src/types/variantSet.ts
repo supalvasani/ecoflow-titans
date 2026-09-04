@@ -20,9 +20,6 @@ export interface Variant {
     attributeValue: string;
     stockQty: number;
     variantVersion?: CatalogItemVersion;
-    // Legacy alias
-    componentVersion?: CatalogItemVersion;
-    quantity?: number;
 }
 
 export interface VariantSetVersion {
@@ -36,9 +33,6 @@ export interface VariantSetVersion {
     createdAt: string;
     variants?: Variant[];
     channelPublishRules?: ChannelPublishRule[];
-    // Legacy aliases
-    components?: Variant[];
-    operations?: ChannelPublishRule[];
 }
 
 export interface VariantSet {
@@ -49,9 +43,6 @@ export interface VariantSet {
     catalogItem?: CatalogItem;
     versions?: VariantSetVersion[];
     activeVersion?: VariantSetVersion;
-    // Legacy alias
-    productId?: string;
-    product?: CatalogItem;
 }
 
 export interface CreateVariantSetDTO {

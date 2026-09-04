@@ -7,7 +7,7 @@ import { catalogItemService } from '../services/catalogItemService';
 import type { CatalogChangeRequest } from '../types/ccr';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/ui/button';
-import { AlertCircle, ArrowRight, Settings, Users, FileBarChart, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Settings, Users, FileBarChart, ShieldCheck } from 'lucide-react';
 
 export const AdminDashboard = () => {
     const { token } = useAuth();

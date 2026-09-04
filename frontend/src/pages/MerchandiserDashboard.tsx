@@ -10,7 +10,7 @@ import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Plus, ArrowRight, AlertCircle } from 'lucide-react';
 
-export const EngineeringDashboard = () => {
+export const MerchandiserDashboard = () => {
     const { token } = useAuth();
     const navigate = useNavigate();
     const [ccrs, setCcrs] = useState<CatalogChangeRequest[]>([]);

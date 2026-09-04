@@ -6,7 +6,7 @@ import type { CatalogItem } from '../../types/catalogItem';
 
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 
-export default function ProductListPage() {
+export default function CatalogItemListPage() {
     const { user, token } = useAuth();
     const navigate = useNavigate();
     const [items, setItems] = useState<CatalogItem[]>([]);
@@ -183,11 +183,10 @@ export default function ProductListPage() {
                                             </td>
                                             <td className="text-center">
                                                 <span
-                                                    className={`inline-block px-1.5 py-0.5 text-[10px] font-mono rounded ${
-                                                        isArchived
+                                                    className={`inline-block px-1.5 py-0.5 text-[10px] font-mono rounded ${isArchived
                                                             ? 'bg-[#F9EBE8] text-[#8C3B2E]'
                                                             : 'bg-[#EAEFEA] text-[#2F4B3C]'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {activeVer?.status || 'ACTIVE'}
                                                 </span>

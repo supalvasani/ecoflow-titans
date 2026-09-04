@@ -99,12 +99,11 @@ export default function UserManagementPage() {
                                             <TableCell className="font-medium">{user.name}</TableCell>
                                             <TableCell>{user.email}</TableCell>
                                             <TableCell>
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                                    user.role === Role.ADMIN ? 'bg-purple-100 text-purple-700' :
-                                                    user.role === Role.MERCHANDISER ? 'bg-blue-100 text-blue-700' :
-                                                    user.role === Role.CATEGORY_APPROVER ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-gray-100 text-gray-700'
-                                                }`}>
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${user.role === Role.ADMIN ? 'bg-purple-100 text-purple-700' :
+                                                        user.role === Role.MERCHANDISER ? 'bg-blue-100 text-blue-700' :
+                                                            user.role === Role.CATEGORY_APPROVER ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-gray-100 text-gray-700'
+                                                    }`}>
                                                     {user.role}
                                                 </span>
                                             </TableCell>

@@ -15,9 +15,7 @@ export interface PublishTask {
     };
 }
 
-
-
-export const operationsService = {
+export const publishTaskService = {
     getTasks: async (token: string): Promise<PublishTask[]> => {
         const response = await fetch(`${API_BASE_URL}/api/publish-tasks/tasks`, {
             headers: {

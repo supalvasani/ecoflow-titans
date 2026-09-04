@@ -26,10 +26,10 @@ export default function CCRCreatePage() {
     const [effectiveDate, setEffectiveDate] = useState('');
 
     // Draft fields
-    const [draftName, setDraftName] = useState('');
+    const [draftName, _setDraftName] = useState('');
     const [draftSalePrice, setDraftSalePrice] = useState('');
     const [draftCostPrice, setDraftCostPrice] = useState('');
-    const [draftNotes, setDraftNotes] = useState('');
+    const [draftNotes, _setDraftNotes] = useState('');
 
     const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
     const [variantSets, setVariantSets] = useState<VariantSet[]>([]);
