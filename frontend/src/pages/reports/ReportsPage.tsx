@@ -2,26 +2,24 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { reportService } from '../../services/reportService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { FileText, Download, Layers, History, Trash2, Eye } from 'lucide-react';
+import { Download, Layers, History, Trash2, Eye, ShieldCheck, AlertCircle, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-type TabType = 'eco' | 'product-versions' | 'bom-history' | 'archived' | 'matrix';
+type TabType = 'ccr' | 'catalog-versions' | 'variant-history' | 'archived' | 'matrix';
 
 export default function ReportsPage() {
     const { token } = useAuth();
-    const [activeTab, setActiveTab] = useState<TabType>('eco');
+    const [activeTab, setActiveTab] = useState<TabType>('ccr');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Report data states
-    const [ecoHistory, setEcoHistory] = useState<any[]>([]);
-    const [productVersions, setProductVersions] = useState<any[]>([]);
-    const [bomHistory, setBomHistory] = useState<any[]>([]);
-    const [archivedProducts, setArchivedProducts] = useState<any[]>([]);
-    const [activeMatrix, setActiveMatrix] = useState<{ products: any[]; boms: any[] }>({ products: [], boms: [] });
+    const [ccrHistory, setCcrHistory] = useState<any[]>([]);
+    const [catalogVersions, setCatalogVersions] = useState<any[]>([]);
+    const [variantHistory, setVariantHistory] = useState<any[]>([]);
+    const [archivedItems, setArchivedItems] = useState<any[]>([]);
+    const [activeMatrix, setActiveMatrix] = useState<{ items: any[]; variantSets: any[] }>({ items: [], variantSets: [] });
 
     const fetchData = async (tab: TabType) => {
         if (!token) return;
@@ -29,29 +27,32 @@ export default function ReportsPage() {
         setError(null);
         try {
             switch (tab) {
-                case 'eco': {
-                    const ecoRes = await reportService.getECOHistory(token);
-                    setEcoHistory(ecoRes.history || []);
+                case 'ccr': {
+                    const res = await reportService.getCCRHistory(token);
+                    setCcrHistory(res.history || []);
                     break;
                 }
-                case 'product-versions': {
-                    const pvRes = await reportService.getProductVersions(token);
-                    setProductVersions(pvRes.versions || []);
+                case 'catalog-versions': {
+                    const res = await reportService.getCatalogItemVersions(token);
+                    setCatalogVersions(res.versions || []);
                     break;
                 }
-                case 'bom-history': {
-                    const bomRes = await reportService.getBOMHistory(token);
-                    setBomHistory(bomRes.history || []);
+                case 'variant-history': {
+                    const res = await reportService.getVariantSetHistory(token);
+                    setVariantHistory(res.history || []);
                     break;
                 }
                 case 'archived': {
-                    const archRes = await reportService.getArchivedProducts(token);
-                    setArchivedProducts(archRes.archived || []);
+                    const res = await reportService.getArchivedCatalogItems(token);
+                    setArchivedItems(res.archived || []);
                     break;
                 }
                 case 'matrix': {
-                    const matrixRes = await reportService.getActiveMatrix(token);
-                    setActiveMatrix({ products: matrixRes.products || [], boms: matrixRes.boms || [] });
+                    const res = await reportService.getActiveMatrix(token);
+                    setActiveMatrix({
+                        items: res.catalogItems || [],
+                        variantSets: res.variantSets || [],
+                    });
                     break;
                 }
             }
@@ -70,66 +71,67 @@ export default function ReportsPage() {
     const handleExportCSV = () => {
         let headers: string[] = [];
         let rows: string[][] = [];
-        const filename = `${activeTab}_report.csv`;
+        const filename = `synchroshift_${activeTab}_report.csv`;
 
-        if (activeTab === 'eco') {
-            headers = ['ECO Title', 'Type', 'Proposer', 'Stage', 'Date Proposed'];
-            rows = ecoHistory.map(h => [
-                h.title,
-                h.type,
+        if (activeTab === 'ccr') {
+            headers = ['CCR Title', 'Type', 'Proposer', 'Stage', 'Date Proposed'];
+            rows = ccrHistory.map(h => [
+                h.title || '',
+                h.type || '',
                 h.createdBy?.name || h.createdBy?.email || 'System',
                 h.stage?.name || 'Draft',
                 new Date(h.createdAt).toLocaleDateString()
             ]);
-        } else if (activeTab === 'product-versions') {
-            headers = ['Product Name', 'Version', 'Sale Price', 'Cost Price', 'Status', 'Date Created'];
-            rows = productVersions.map(pv => [
-                pv.product?.name || 'Unknown',
-                pv.version.toString(),
-                pv.salePrice,
-                pv.costPrice,
-                pv.status,
+        } else if (activeTab === 'catalog-versions') {
+            headers = ['Catalog Item', 'Version', 'Sale Price', 'Cost Price', 'Status', 'Date Created'];
+            rows = catalogVersions.map(pv => [
+                pv.product?.name || pv.catalogItem?.name || 'Unknown',
+                (pv.version || pv.versionString || '').toString(),
+                String(pv.salePrice || 0),
+                String(pv.costPrice || 0),
+                pv.status || '',
                 new Date(pv.createdAt).toLocaleDateString()
             ]);
-        } else if (activeTab === 'bom-history') {
-            headers = ['BOM ID', 'Version', 'Components Count', 'Operations Count', 'Status', 'Date Proposed'];
-            rows = bomHistory.map(b => [
-                b.bomId,
-                b.version.toString(),
-                (b.components?.length || 0).toString(),
-                (b.operations?.length || 0).toString(),
-                b.status,
+        } else if (activeTab === 'variant-history') {
+            headers = ['Variant Set ID', 'Version', 'Variants Count', 'Channel Rules Count', 'Status', 'Date Proposed'];
+            rows = variantHistory.map(b => [
+                b.variantSetId || b.id || '',
+                (b.version || '').toString(),
+                (b.variants?.length || 0).toString(),
+                (b.channelRules?.length || b.operations?.length || 0).toString(),
+                b.status || '',
                 new Date(b.createdAt).toLocaleDateString()
             ]);
         } else if (activeTab === 'archived') {
-            headers = ['Product Name', 'Version', 'Archived Date'];
-            rows = archivedProducts.map(ap => [
-                ap.product?.name || 'Unknown',
-                ap.version.toString(),
-                new Date(ap.createdAt).toLocaleDateString()
+            headers = ['Catalog Item Name', 'SKU', 'Total Archived Versions'];
+            rows = archivedItems.map(a => [
+                a.name || '',
+                a.sku || '',
+                (a.versions?.length || 0).toString()
             ]);
         } else if (activeTab === 'matrix') {
-            headers = ['Product Name', 'Active Version', 'Active BOM ID', 'Active BOM Version'];
-            rows = activeMatrix.products.map(p => {
-                const activeVer = p.versions?.[0];
-                const matchingBOM = activeMatrix.boms.find(b => b.productId === p.id);
-                const activeBOMVer = matchingBOM?.versions?.[0];
+            headers = ['Item Name', 'SKU', 'Live Version', 'Sale Price', 'Cost Price', 'Active Variant Sets'];
+            rows = activeMatrix.items.map(p => {
+                const currentV = p.versions?.find((v: any) => v.isCurrent) || p.versions?.[0];
+                const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === p.id || b.productId === p.id);
                 return [
                     p.name,
-                    activeVer ? `v${activeVer.version}` : 'None',
-                    matchingBOM ? matchingBOM.id : 'None',
-                    activeBOMVer ? `v${activeBOMVer.version}` : 'None'
+                    p.sku,
+                    (currentV?.version || '1.0').toString(),
+                    String(currentV?.salePrice || 0),
+                    String(currentV?.costPrice || 0),
+                    matchingSets.map((b: any) => b.name || b.id).join('; ')
                 ];
             });
         }
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + [headers.join(','), ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
-        
+        const csvContent = 'data:text/csv;charset=utf-8,' +
+            [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
+
         const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", filename);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -137,274 +139,312 @@ export default function ReportsPage() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="max-w-6xl mx-auto space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--line)' }}>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Reports & Change History</h1>
-                        <p className="text-muted-foreground">Traceability dashboards for SynchroShift master data and workflows</p>
+                        <h1 className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            Catalog Governance & Audit Reports
+                        </h1>
+                        <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--ink-muted)' }}>
+                            Enterprise version audit trails, multi-channel release logs, and pricing lineage reports.
+                        </p>
                     </div>
-                    <Button onClick={handleExportCSV} disabled={loading || error !== null}>
-                        <Download className="mr-2 h-4 w-4" /> Export CSV
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportCSV}
+                        disabled={loading}
+                        className="font-sans text-xs h-8"
+                    >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        Export Report (.CSV)
                     </Button>
                 </div>
 
-                {/* Tabs selection */}
-                <div className="flex border-b border-gray-200 overflow-x-auto space-x-6">
-                    <button
-                        onClick={() => setActiveTab('eco')}
-                        className={`flex items-center pb-3 pt-1 border-b-2 font-medium text-sm whitespace-nowrap gap-2 ${
-                            activeTab === 'eco' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <History className="h-4 w-4" /> ECO Change History
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('product-versions')}
-                        className={`flex items-center pb-3 pt-1 border-b-2 font-medium text-sm whitespace-nowrap gap-2 ${
-                            activeTab === 'product-versions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <Layers className="h-4 w-4" /> Product Version History
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('bom-history')}
-                        className={`flex items-center pb-3 pt-1 border-b-2 font-medium text-sm whitespace-nowrap gap-2 ${
-                            activeTab === 'bom-history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <Layers className="h-4 w-4" /> BOM Change History
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('archived')}
-                        className={`flex items-center pb-3 pt-1 border-b-2 font-medium text-sm whitespace-nowrap gap-2 ${
-                            activeTab === 'archived' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <Trash2 className="h-4 w-4" /> Archived Products
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('matrix')}
-                        className={`flex items-center pb-3 pt-1 border-b-2 font-medium text-sm whitespace-nowrap gap-2 ${
-                            activeTab === 'matrix' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <FileText className="h-4 w-4" /> Active Version Matrix
-                    </button>
-                </div>
-
                 {error && (
-                    <div className="p-4 bg-destructive/15 text-destructive rounded-md">
-                        {error}
+                    <div
+                        className="p-3 border text-xs font-sans flex items-start gap-2"
+                        style={{ backgroundColor: '#FDF2F0', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                    >
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>{error}</div>
                     </div>
                 )}
 
-                {loading ? (
-                    <div className="py-20 text-center text-muted-foreground">Loading report data...</div>
-                ) : (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>
-                                {activeTab === 'eco' && 'Engineering Change Orders Trail'}
-                                {activeTab === 'product-versions' && 'Product Versions Catalog'}
-                                {activeTab === 'bom-history' && 'BOM Version Ledger'}
-                                {activeTab === 'archived' && 'Archived Products Repository'}
-                                {activeTab === 'matrix' && 'Active Catalog Matrix'}
-                            </CardTitle>
-                            <CardDescription>
-                                {activeTab === 'eco' && 'Full history of created and processed change orders.'}
-                                {activeTab === 'product-versions' && 'All versions of catalog products.'}
-                                {activeTab === 'bom-history' && 'Historical records of all BOM modifications and operational updates.'}
-                                {activeTab === 'archived' && 'Inventory versions that have been decommissioned/archived.'}
-                                {activeTab === 'matrix' && 'Current live snap of active product versions mapped with active BOM structures.'}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {/* Render Tab Contents */}
-                            {activeTab === 'eco' && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>ECO Title</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Proposer</TableHead>
-                                            <TableHead>Current Stage</TableHead>
-                                            <TableHead>Date Proposed</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {ecoHistory.length === 0 ? (
-                                            <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No ECO history records found</TableCell></TableRow>
-                                        ) : (
-                                            ecoHistory.map((eco) => (
-                                                <TableRow key={eco.id}>
-                                                    <TableCell className="font-medium">{eco.title}</TableCell>
-                                                    <TableCell>{eco.type}</TableCell>
-                                                    <TableCell>{eco.createdBy?.name || eco.createdBy?.email}</TableCell>
-                                                    <TableCell><span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-semibold">{eco.stage?.name}</span></TableCell>
-                                                    <TableCell>{new Date(eco.createdAt).toLocaleDateString()}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Link to={`/ecos/${eco.id}`}>
-                                                            <Button size="sm" variant="ghost">
-                                                                <Eye className="h-4 w-4 mr-1" /> View Diff
-                                                            </Button>
-                                                        </Link>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                {/* Tabs */}
+                <div className="border-b flex flex-wrap items-center gap-6 text-xs font-sans font-medium" style={{ borderColor: 'var(--line)' }}>
+                    <button
+                        onClick={() => setActiveTab('ccr')}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'ccr' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'ccr' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'ccr' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <FileText className="h-3.5 w-3.5" />
+                        CCR Lifecycle Log
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('catalog-versions')}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'catalog-versions' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'catalog-versions' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'catalog-versions' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <History className="h-3.5 w-3.5" />
+                        Item Version Lineage
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('variant-history')}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'variant-history' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'variant-history' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'variant-history' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <Layers className="h-3.5 w-3.5" />
+                        Variant Set Releases
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('archived')}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'archived' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'archived' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'archived' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Archived / Rollback Candidates
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('matrix')}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'matrix' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'matrix' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'matrix' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Live Matrix Snapshot
+                    </button>
+                </div>
+
+                {/* Report Table Container */}
+                <div className="bg-white border" style={{ borderColor: 'var(--line)' }}>
+                    {loading ? (
+                        <div className="p-12 text-center text-xs font-sans" style={{ color: 'var(--ink-muted)' }}>
+                            Generating report dataset...
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            {/* CCR Report Table */}
+                            {activeTab === 'ccr' && (
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Title / CCR ID</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Type</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Author</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Stage</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Proposed At</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {ccrHistory.map((item) => (
+                                            <tr key={item.id} className="hover:bg-stone-50/50">
+                                                <td className="py-2.5 px-4">
+                                                    <div className="font-medium text-ink">{item.title}</div>
+                                                    <div className="font-mono text-[10px]" style={{ color: 'var(--ink-muted)' }}>
+                                                        CCR-{item.id.substring(0, 8)}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 px-4 font-mono text-[11px] text-ink-muted">{item.type}</td>
+                                                <td className="py-2.5 px-4 text-ink-muted">{item.createdBy?.name || item.createdBy?.email || 'System'}</td>
+                                                <td className="py-2.5 px-4">
+                                                    <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 border" style={{ borderColor: 'var(--line)' }}>
+                                                        {item.stage?.name || 'DRAFT'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-4 font-mono text-[11px] text-ink-muted">
+                                                    {new Date(item.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td className="py-2.5 px-4 text-right">
+                                                    <Link to={`/ccrs/${item.id}`} className="text-xs font-sans text-accent hover:underline">
+                                                        View Console
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
 
-                            {activeTab === 'product-versions' && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product</TableHead>
-                                            <TableHead>Version</TableHead>
-                                            <TableHead>Sale Price</TableHead>
-                                            <TableHead>Cost Price</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Date Created</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {productVersions.length === 0 ? (
-                                            <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No product versions found</TableCell></TableRow>
-                                        ) : (
-                                            productVersions.map((pv) => (
-                                                <TableRow key={pv.id}>
-                                                    <TableCell className="font-medium">{pv.product?.name}</TableCell>
-                                                    <TableCell>v{pv.version}</TableCell>
-                                                    <TableCell>₹{pv.salePrice}</TableCell>
-                                                    <TableCell>₹{pv.costPrice}</TableCell>
-                                                    <TableCell>
-                                                        <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
-                                                            pv.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
-                                                        }`}>{pv.status}</span>
-                                                    </TableCell>
-                                                    <TableCell>{new Date(pv.createdAt).toLocaleDateString()}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                            {/* Catalog Versions Lineage Table */}
+                            {activeTab === 'catalog-versions' && (
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Catalog Item</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Version</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Sale Price</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Cost Price</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Margin</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Status</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Effective Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {catalogVersions.map((v) => {
+                                            const sale = Number(v.salePrice || 0);
+                                            const cost = Number(v.costPrice || 0);
+                                            const margin = sale > 0 ? ((sale - cost) / sale) * 100 : 0;
+
+                                            return (
+                                                <tr key={v.id} className="hover:bg-stone-50/50">
+                                                    <td className="py-2.5 px-4">
+                                                        <div className="font-medium text-ink">{v.product?.name || v.catalogItem?.name || 'Unknown'}</div>
+                                                        <div className="font-mono text-[10px]" style={{ color: 'var(--ink-muted)' }}>
+                                                            {v.product?.sku || v.catalogItem?.sku || '—'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink">v{v.version || v.versionString || '1.0'}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink">${sale.toFixed(2)}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink-muted">${cost.toFixed(2)}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-accent font-medium">{margin.toFixed(1)}%</td>
+                                                    <td className="py-2.5 px-4">
+                                                        <span className="font-mono text-[10px] px-1.5 py-0.5 border" style={{ borderColor: 'var(--line)' }}>
+                                                            {v.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2.5 px-4 font-mono text-[11px] text-ink-muted">
+                                                        {new Date(v.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             )}
 
-                            {activeTab === 'bom-history' && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>BOM Version ID</TableHead>
-                                            <TableHead>Version</TableHead>
-                                            <TableHead>Components Count</TableHead>
-                                            <TableHead>Operations Count</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Date Created</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {bomHistory.length === 0 ? (
-                                            <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No BOM version records found</TableCell></TableRow>
-                                        ) : (
-                                            bomHistory.map((bh) => (
-                                                <TableRow key={bh.id}>
-                                                    <TableCell className="font-medium font-mono text-xs">{bh.id}</TableCell>
-                                                    <TableCell>v{bh.version}</TableCell>
-                                                    <TableCell>{bh.components?.length || 0} component(s)</TableCell>
-                                                    <TableCell>{bh.operations?.length || 0} operation(s)</TableCell>
-                                                    <TableCell>
-                                                        <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
-                                                            bh.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
-                                                        }`}>{bh.status}</span>
-                                                    </TableCell>
-                                                    <TableCell>{new Date(bh.createdAt).toLocaleDateString()}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                            {/* Variant Set Releases Table */}
+                            {activeTab === 'variant-history' && (
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Variant Set ID</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Version</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Variants</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Channel Rules</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Status</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Released</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {variantHistory.map((b) => (
+                                            <tr key={b.id} className="hover:bg-stone-50/50">
+                                                <td className="py-2.5 px-4 font-mono text-ink">{b.variantSetId || b.id}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink">v{b.version || '1.0'}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink-muted">{b.variants?.length || 0}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink-muted">{b.channelRules?.length || 0}</td>
+                                                <td className="py-2.5 px-4">
+                                                    <span className="font-mono text-[10px] px-1.5 py-0.5 border" style={{ borderColor: 'var(--line)' }}>
+                                                        {b.status}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-4 font-mono text-[11px] text-ink-muted">
+                                                    {new Date(b.createdAt).toLocaleDateString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
 
+                            {/* Archived Table */}
                             {activeTab === 'archived' && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product Name</TableHead>
-                                            <TableHead>Version</TableHead>
-                                            <TableHead>Archived Date</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {archivedProducts.length === 0 ? (
-                                            <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">No archived product versions found</TableCell></TableRow>
-                                        ) : (
-                                            archivedProducts.map((ap) => (
-                                                <TableRow key={ap.id}>
-                                                    <TableCell className="font-medium text-destructive">{ap.product?.name}</TableCell>
-                                                    <TableCell>v{ap.version}</TableCell>
-                                                    <TableCell>{new Date(ap.createdAt).toLocaleDateString()}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Catalog Item Name</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">SKU</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Archived Versions</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {archivedItems.map((item) => (
+                                            <tr key={item.id} className="hover:bg-stone-50/50">
+                                                <td className="py-2.5 px-4 font-medium text-ink">{item.name}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink-muted">{item.sku}</td>
+                                                <td className="py-2.5 px-4 font-mono text-ink">{item.versions?.length || 0}</td>
+                                                <td className="py-2.5 px-4 text-right">
+                                                    <Link to={`/products/${item.id}`} className="text-xs font-sans text-accent hover:underline">
+                                                        Inspect Lineage
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
 
+                            {/* Active Matrix Table */}
                             {activeTab === 'matrix' && (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product Name</TableHead>
-                                            <TableHead>Active Product Version</TableHead>
-                                            <TableHead>Active BOM Version</TableHead>
-                                            <TableHead>BOM Components</TableHead>
-                                            <TableHead>BOM Operations</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {activeMatrix.products.length === 0 ? (
-                                            <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No active snapshot matrix found</TableCell></TableRow>
-                                        ) : (
-                                            activeMatrix.products.map((p) => {
-                                                const activeVer = p.versions?.[0];
-                                                const matchingBOM = activeMatrix.boms.find(b => b.productId === p.id);
-                                                const activeBOMVer = matchingBOM?.versions?.[0];
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Item Name</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">SKU</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Active Version</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Active Price</th>
+                                            <th className="py-2.5 px-4 font-medium text-ink-muted">Linked Variant Sets</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {activeMatrix.items.map((item) => {
+                                            const currentV = item.versions?.find((v: any) => v.isCurrent) || item.versions?.[0];
+                                            const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === item.id || b.productId === item.id);
 
-                                                return (
-                                                    <TableRow key={p.id}>
-                                                        <TableCell className="font-medium">{p.name}</TableCell>
-                                                        <TableCell>{activeVer ? `v${activeVer.version}` : 'None'}</TableCell>
-                                                        <TableCell>{activeBOMVer ? `v${activeBOMVer.version}` : 'None'}</TableCell>
-                                                        <TableCell>
-                                                            {activeBOMVer?.components && activeBOMVer.components.length > 0 ? (
-                                                                <ul className="list-disc pl-4 text-xs space-y-0.5">
-                                                                    {activeBOMVer.components.map((c: any, i: number) => (
-                                                                        <li key={i}>{c.componentVersion?.product?.name || 'Component'} (x{c.quantity})</li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : 'No components'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {activeBOMVer?.operations && activeBOMVer.operations.length > 0 ? (
-                                                                <ul className="list-disc pl-4 text-xs space-y-0.5">
-                                                                    {activeBOMVer.operations.map((op: any, i: number) => (
-                                                                        <li key={i}>{op.name} ({op.timeMinutes}m)</li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : 'No operations'}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            return (
+                                                <tr key={item.id} className="hover:bg-stone-50/50">
+                                                    <td className="py-2.5 px-4 font-medium text-ink">{item.name}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink-muted">{item.sku}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink">v{currentV?.version || '1.0'}</td>
+                                                    <td className="py-2.5 px-4 font-mono text-ink">${Number(currentV?.salePrice || 0).toFixed(2)}</td>
+                                                    <td className="py-2.5 px-4 text-ink-muted">
+                                                        {matchingSets.length > 0 ? (
+                                                            <span className="font-mono text-xs">{matchingSets.map((b: any) => b.name).join(', ')}</span>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             )}
-                        </CardContent>
-                    </Card>
-                )}
+                        </div>
+                    )}
+                </div>
             </div>
         </DashboardLayout>
     );

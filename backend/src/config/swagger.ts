@@ -5,8 +5,8 @@ const options: swaggerJsdoc.Options = {
         openapi: '3.0.0',
         info: {
             title: 'SynchroShift API',
-            version: '1.0.0',
-            description: 'API documentation for SynchroShift - Engineering Change Order Management System',
+            version: '2.0.0',
+            description: 'API documentation for SynchroShift - Catalog & Merchandising Governance Platform',
             contact: {
                 name: 'SynchroShift Team',
                 email: 'support@synchroshift.com',
@@ -48,7 +48,7 @@ const options: swaggerJsdoc.Options = {
                         },
                         role: {
                             type: 'string',
-                            enum: ['ENGINEERING_USER', 'APPROVER', 'OPERATIONS_USER', 'ADMIN'],
+                            enum: ['MERCHANDISER', 'CATEGORY_APPROVER', 'STOREFRONT_VIEWER', 'ADMIN'],
                             description: 'User role',
                         },
                         createdAt: {

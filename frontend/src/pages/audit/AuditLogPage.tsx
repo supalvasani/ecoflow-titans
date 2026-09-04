@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { auditService } from '../../services/auditService';
-import type { AuditLog } from '../../types/eco';
+import type { AuditLog } from '../../types/ccr';
+
+
+
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -110,9 +113,9 @@ export default function AuditLogPage() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     <option value="">All Entities</option>
-                                    <option value="ECO">ECO</option>
-                                    <option value="Product">Product</option>
-                                    <option value="BOM">BOM</option>
+                                    <option value="CCR">Catalog Change Request (CCR)</option>
+                                    <option value="CatalogItem">Catalog Item</option>
+                                    <option value="VariantSet">Variant Set</option>
                                     <option value="User">User</option>
                                 </select>
                             </div>

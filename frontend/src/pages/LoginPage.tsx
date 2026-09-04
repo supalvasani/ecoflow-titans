@@ -65,7 +65,7 @@ export const LoginPage = () => {
                         <Layers className="w-6 h-6" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">SynchroShift</h1>
-                    <p className="text-sm text-slate-500 font-medium">Engineering Change Order & PLM Governance</p>
+                    <p className="text-sm text-slate-500 font-medium">Catalog & Merchandising Governance Platform</p>
                 </div>
 
                 {/* Login Card */}

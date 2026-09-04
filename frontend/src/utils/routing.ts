@@ -1,4 +1,4 @@
-// Role-based routing utilities
+// Role-based routing utilities for SynchroShift
 import { Role } from '../types/auth';
 
 /**
@@ -6,13 +6,13 @@ import { Role } from '../types/auth';
  */
 export const getRoleBasedPath = (role: Role): string => {
     switch (role) {
-        case Role.ENGINEERING_USER:
-            return '/engineering';
-        case Role.APPROVER:
+        case 'MERCHANDISER':
+            return '/merchandiser';
+        case 'CATEGORY_APPROVER':
             return '/approver';
-        case Role.OPERATIONS_USER:
-            return '/operations';
-        case Role.ADMIN:
+        case 'STOREFRONT_VIEWER':
+            return '/storefront';
+        case 'ADMIN':
             return '/admin';
         default:
             return '/login';
@@ -24,15 +24,15 @@ export const getRoleBasedPath = (role: Role): string => {
  */
 export const getRoleDisplayName = (role: Role): string => {
     switch (role) {
-        case Role.ENGINEERING_USER:
-            return 'Engineering User';
-        case Role.APPROVER:
-            return 'Approver';
-        case Role.OPERATIONS_USER:
-            return 'Operations User';
-        case Role.ADMIN:
-            return 'Admin';
+        case 'MERCHANDISER':
+            return 'Merchandiser';
+        case 'CATEGORY_APPROVER':
+            return 'Category Approver';
+        case 'STOREFRONT_VIEWER':
+            return 'Storefront Viewer';
+        case 'ADMIN':
+            return 'Administrator';
         default:
-            return 'Unknown Role';
+            return 'User';
     }
 };

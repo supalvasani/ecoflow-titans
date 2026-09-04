@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { auditService } from '../../services/auditService';
-import type { AuditLog } from '../../types/eco';
+import type { AuditLog } from '../../types/ccr';
+
+
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { AlertCircle, History } from 'lucide-react';

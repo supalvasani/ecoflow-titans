@@ -1,45 +1,47 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { productService } from '../../services/productService';
+import { catalogItemService } from '../../services/catalogItemService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 
 export default function ProductCreatePage() {
     const { token } = useAuth();
     const navigate = useNavigate();
 
     const [name, setName] = useState('');
+    const [sku, setSku] = useState('');
+    const [brand, setBrand] = useState('');
+    const [category, setCategory] = useState('');
     const [salePrice, setSalePrice] = useState('');
     const [costPrice, setCostPrice] = useState('');
+    const [currency, setCurrency] = useState('USD');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!token) return;
 
-        // Validation
         if (!name.trim()) {
-            setError('Product name is required');
+            setError('Item name is required.');
             return;
         }
 
-        const salePriceNum = parseFloat(salePrice);
-        const costPriceNum = parseFloat(costPrice);
-
-        if (isNaN(salePriceNum) || salePriceNum <= 0) {
-            setError('Sale price must be a positive number');
+        if (!sku.trim()) {
+            setError('SKU code is required.');
             return;
         }
 
-        if (isNaN(costPriceNum) || costPriceNum <= 0) {
-            setError('Cost price must be a positive number');
+        const sale = parseFloat(salePrice);
+        const cost = parseFloat(costPrice);
+
+        if (isNaN(sale) || sale < 0) {
+            setError('Sale price must be a valid positive number.');
+            return;
+        }
+
+        if (isNaN(cost) || cost < 0) {
+            setError('Cost price must be a valid positive number.');
             return;
         }
 
@@ -47,127 +49,187 @@ export default function ProductCreatePage() {
             setLoading(true);
             setError(null);
 
-            const { product } = await productService.createProduct(token, {
+            const res = await catalogItemService.createCatalogItem(token, {
                 name: name.trim(),
-                salePrice: salePriceNum,
-                costPrice: costPriceNum,
+                sku: sku.trim().toUpperCase(),
+                brand: brand.trim() || undefined,
+                category: category.trim() || undefined,
+                salePrice: sale,
+                costPrice: cost,
+                currency,
             });
 
-            // Navigate to the new product detail page
-            navigate(`/products/${product.id}`);
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Unknown error';
-            setError(message || 'Failed to create product');
+            const createdId = res.catalogItem?.id;
+            navigate(createdId ? `/products/${createdId}` : '/products');
+        } catch (err: any) {
+            setError(err.message || 'Failed to create catalog item.');
         } finally {
             setLoading(false);
         }
     };
 
+    const marginPercent = useMemoMargin(salePrice, costPrice);
+
     return (
-        <DashboardLayout>
-            <div className="max-w-3xl mx-auto space-y-6">
-                <Button variant="ghost" onClick={() => navigate('/products')} className="mb-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Products
-                </Button>
+        <DashboardLayout
+            title="Create Catalog Item"
+            subtitle="Register a new master SKU definition. Initial revision v1 will be generated automatically."
+            action={
+                <Link
+                    to="/products"
+                    className="px-2.5 py-1.5 border border-[#DEDBD4] bg-white text-xs text-[#1C1B19] rounded hover:bg-[#F7F6F3] transition-colors"
+                >
+                    Cancel
+                </Link>
+            }
+        >
+            <div className="max-w-2xl">
+                <div className="bg-white border border-[#DEDBD4] p-5 rounded">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="p-3 bg-[#F9EBE8] border border-[#8C3B2E] text-[#8C3B2E] text-xs rounded">
+                                {error}
+                            </div>
+                        )}
 
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Create New Product</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Add a new product to your catalog. Version 1 will be created automatically.
-                    </p>
-                </div>
+                        <div>
+                            <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                Item Name <span className="text-[#8C3B2E]">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="e.g. Velo Runner Pro 2"
+                                required
+                                className="w-full text-xs px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
+                            />
+                        </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Product Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {error && (
-                                <div className="bg-destructive/15 text-destructive p-4 rounded-md flex items-center">
-                                    <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
-                                    {error}
-                                </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <Label htmlFor="name">
-                                    Product Name <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    id="name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="e.g., Wooden Dining Table"
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    SKU Code <span className="text-[#8C3B2E]">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={sku}
+                                    onChange={(e) => setSku(e.target.value)}
+                                    placeholder="e.g. VRP-002"
                                     required
+                                    className="w-full text-xs font-mono px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="salePrice">
-                                        Sale Price (₹) <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="salePrice"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={salePrice}
-                                        onChange={(e) => setSalePrice(e.target.value)}
-                                        placeholder="0.00"
-                                        required
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="costPrice">
-                                        Cost Price (₹) <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="costPrice"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={costPrice}
-                                        onChange={(e) => setCostPrice(e.target.value)}
-                                        placeholder="0.00"
-                                        required
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    Brand
+                                </label>
+                                <input
+                                    type="text"
+                                    value={brand}
+                                    onChange={(e) => setBrand(e.target.value)}
+                                    placeholder="e.g. Velo"
+                                    className="w-full text-xs px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
+                                />
                             </div>
 
-                            {salePrice && costPrice && (
-                                <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                                    <div className="flex">
-                                        <div className="ml-3">
-                                            <p className="text-sm text-blue-700">
-                                                <span className="font-semibold">Margin:</span>{' '}
-                                                {((parseFloat(salePrice) - parseFloat(costPrice)) / parseFloat(salePrice) * 100).toFixed(2)}%
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    Category
+                                </label>
+                                <input
+                                    type="text"
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    placeholder="e.g. Footwear"
+                                    className="w-full text-xs px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
+                                />
+                            </div>
+                        </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => navigate('/products')}
-                                    disabled={loading}
+                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[#DEDBD4]">
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    Sale Price <span className="text-[#8C3B2E]">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={salePrice}
+                                    onChange={(e) => setSalePrice(e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                    className="w-full text-xs font-mono px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    Base Cost Price <span className="text-[#8C3B2E]">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={costPrice}
+                                    onChange={(e) => setCostPrice(e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                    className="w-full text-xs font-mono px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none focus:border-[#2F4B3C]"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-[#1C1B19] mb-1">
+                                    Currency
+                                </label>
+                                <select
+                                    value={currency}
+                                    onChange={(e) => setCurrency(e.target.value)}
+                                    className="w-full text-xs px-3 py-2 bg-[#F7F6F3] border border-[#DEDBD4] rounded text-[#1C1B19] focus:bg-white focus:outline-none"
                                 >
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={loading}>
-                                    <Save className="mr-2 h-4 w-4" />
-                                    {loading ? 'Creating...' : 'Create Product'}
-                                </Button>
+                                    <option value="USD">USD ($)</option>
+                                    <option value="EUR">EUR (€)</option>
+                                    <option value="GBP">GBP (£)</option>
+                                    <option value="JPY">JPY (¥)</option>
+                                </select>
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </div>
+
+                        {marginPercent !== null && (
+                            <div className="text-xs text-[#6B6862] bg-[#F7F6F3] p-2.5 rounded border border-[#DEDBD4]">
+                                Projected Gross Margin: <span className="font-mono font-medium text-[#1C1B19]">{marginPercent}%</span>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-3 border-t border-[#DEDBD4]">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/products')}
+                                className="px-3 py-1.5 border border-[#DEDBD4] text-xs text-[#1C1B19] rounded hover:bg-[#F7F6F3] transition-colors"
+                            >
+                                Discard
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="px-4 py-1.5 bg-[#2F4B3C] text-white text-xs font-medium rounded hover:bg-[#263D31] transition-colors disabled:opacity-50"
+                            >
+                                {loading ? 'Registering SKU...' : 'Create Item'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </DashboardLayout>
     );
+}
+
+function useMemoMargin(sale: string, cost: string): string | null {
+    const s = parseFloat(sale);
+    const c = parseFloat(cost);
+    if (isNaN(s) || isNaN(c) || s <= 0) return null;
+    return (((s - c) / s) * 100).toFixed(1);
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RootRedirect } from './components/RootRedirect';
@@ -10,11 +10,11 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import ProductListPage from './pages/products/ProductListPage';
 import ProductCreatePage from './pages/products/ProductCreatePage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
-import ECOListPage from './pages/ecos/ECOListPage';
-import ECOCreatePage from './pages/ecos/ECOCreatePage';
-import ECODetailPage from './pages/ecos/ECODetailPage';
-import BOMPage from './pages/boms/BOMPage';
-import BOMDetailPage from './pages/boms/BOMDetailPage';
+import CCRListPage from './pages/ccrs/CCRListPage';
+import CCRCreatePage from './pages/ccrs/CCRCreatePage';
+import CCRDetailPage from './pages/ccrs/CCRDetailPage';
+import VariantSetPage from './pages/variant-sets/VariantSetPage';
+import VariantSetDetailPage from './pages/variant-sets/VariantSetDetailPage';
 import AuditLogPage from './pages/audit/AuditLogPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -26,50 +26,58 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Root - Redirects based on auth status */}
+          {/* Root - Redirects based on auth status and role */}
           <Route path="/" element={<RootRedirect />} />
 
-          {/* Public Routes */}
+          {/* Public Login Route */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Role-Based Protected Routes */}
+          {/* Role-Dedicated Consoles */}
           <Route
-            path="/engineering"
+            path="/merchandiser"
             element={
-              <ProtectedRoute requiredRole={Role.ENGINEERING_USER}>
+              <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
                 <EngineeringDashboard />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/engineering"
+            element={<Navigate to="/merchandiser" replace />}
           />
 
           <Route
             path="/approver"
             element={
-              <ProtectedRoute requiredRole={Role.APPROVER}>
+              <ProtectedRoute allowedRoles={[Role.CATEGORY_APPROVER, Role.ADMIN]}>
                 <ApproverDashboard />
               </ProtectedRoute>
             }
           />
 
           <Route
-            path="/operations"
+            path="/storefront"
             element={
-              <ProtectedRoute requiredRole={Role.OPERATIONS_USER}>
+              <ProtectedRoute allowedRoles={[Role.STOREFRONT_VIEWER, Role.ADMIN]}>
                 <OperationsDashboard />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/operations"
+            element={<Navigate to="/storefront" replace />}
           />
 
           <Route
             path="/admin"
             element={
-              <ProtectedRoute requiredRole={Role.ADMIN}>
+              <ProtectedRoute allowedRoles={[Role.ADMIN]}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
           />
 
-          {/* Product Routes - Accessible to all authenticated users */}
+          {/* Catalog Items Routes */}
           <Route
             path="/products"
             element={
@@ -79,9 +87,17 @@ function App() {
             }
           />
           <Route
+            path="/products/create"
+            element={
+              <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
+                <ProductCreatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/products/new"
             element={
-              <ProtectedRoute requiredRole={Role.ADMIN}>
+              <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
                 <ProductCreatePage />
               </ProtectedRoute>
             }
@@ -95,51 +111,59 @@ function App() {
             }
           />
 
-          {/* ECO Routes */}
+          {/* Change Requests (CCR) Routes */}
           <Route
-            path="/ecos/new"
+            path="/ccrs"
             element={
-              <ProtectedRoute>
-                <ECOCreatePage />
+              <ProtectedRoute forbiddenRoles={[Role.STOREFRONT_VIEWER]}>
+                <CCRListPage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/ecos"
+            path="/ccrs/create"
             element={
-              <ProtectedRoute>
-                <ECOListPage />
+              <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
+                <CCRCreatePage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/ecos/:id"
+            path="/ccrs/new"
             element={
-              <ProtectedRoute>
-                <ECODetailPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* BOM Routes */}
-          <Route
-            path="/boms"
-            element={
-              <ProtectedRoute>
-                <BOMPage />
+              <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
+                <CCRCreatePage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/boms/:id"
+            path="/ccrs/:id"
             element={
-              <ProtectedRoute>
-                <BOMDetailPage />
+              <ProtectedRoute forbiddenRoles={[Role.STOREFRONT_VIEWER]}>
+                <CCRDetailPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Audit Log Routes */}
+          {/* Variant Sets Routes */}
+          <Route
+            path="/variant-sets"
+            element={
+              <ProtectedRoute>
+                <VariantSetPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/variant-sets/:id"
+            element={
+              <ProtectedRoute>
+                <VariantSetDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Audit Trail Route */}
           <Route
             path="/audit"
             element={
@@ -149,31 +173,31 @@ function App() {
             }
           />
 
-          {/* Reports Routes */}
+          {/* Reports Route */}
           <Route
             path="/reports"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute forbiddenRoles={[Role.STOREFRONT_VIEWER]}>
                 <ReportsPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Settings Routes */}
+          {/* Governance Settings Route */}
           <Route
             path="/settings"
             element={
-              <ProtectedRoute requiredRole={Role.ADMIN}>
+              <ProtectedRoute allowedRoles={[Role.ADMIN]}>
                 <SettingsPage />
               </ProtectedRoute>
             }
           />
 
-          {/* User Management Route */}
+          {/* User Directory Management Route */}
           <Route
             path="/admin/users"
             element={
-              <ProtectedRoute requiredRole={Role.ADMIN}>
+              <ProtectedRoute allowedRoles={[Role.ADMIN]}>
                 <UserManagementPage />
               </ProtectedRoute>
             }
@@ -185,4 +209,3 @@ function App() {
 }
 
 export default App;
-

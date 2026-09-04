@@ -1,4 +1,4 @@
-import { ItemStatus } from '../types/product';
+import { ItemStatus } from '../types/catalogItem';
 
 // Status badge color mapping
 export const getStatusBadgeClass = (status: ItemStatus): string => {
@@ -12,7 +12,7 @@ export const getStatusBadgeClass = (status: ItemStatus): string => {
     }
 };
 
-// ECO Stage badge color mapping
+// CCR Stage badge color mapping
 export const getStageBadgeClass = (stageName: string): string => {
     const normalizedStage = stageName.toLowerCase();
 
@@ -35,13 +35,16 @@ export const getStageBadgeClass = (stageName: string): string => {
     return 'bg-blue-100 text-blue-800 border-blue-200';
 };
 
-// ECO Type badge color mapping
+// CCR Type badge color mapping
 export const getTypeBadgeClass = (type: string): string => {
     switch (type) {
-        case 'PRODUCT':
+        case 'CATALOG_ITEM':
             return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'BOM':
+        case 'VARIANT_SET':
+        case 'VARIANT_SET_CHANGE':
             return 'bg-orange-50 text-orange-700 border-orange-200';
+        case 'ROLLBACK':
+            return 'bg-purple-50 text-purple-700 border-purple-200';
         default:
             return 'bg-gray-50 text-gray-700 border-gray-200';
     }

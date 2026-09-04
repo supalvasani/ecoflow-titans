@@ -14,7 +14,6 @@ export const createCCR = async (req: AuthRequest, res: Response) => {
             catalogItemId,
             productId,
             variantSetId,
-            bomId,
             rollbackTargetVersionId,
             initialChanges,
         } = req.body;
@@ -22,12 +21,11 @@ export const createCCR = async (req: AuthRequest, res: Response) => {
 
         const dateObj = effectiveDate ? new Date(effectiveDate) : undefined;
         const targetCatalogItemId = catalogItemId || productId;
-        const targetVariantSetId = variantSetId || bomId;
+        const targetVariantSetId = variantSetId;
 
-        // Map legacy types if sent
+        // Map legacy PRODUCT type if sent by old clients
         let ccrType: CCRType = type as CCRType;
         if ((type as string) === 'PRODUCT') ccrType = 'CATALOG_ITEM';
-        if ((type as string) === 'BOM' || (type as string) === 'BOM_CHANGE') ccrType = 'VARIANT_SET';
 
         const ccr = await ccrService.createCCR({
             title,
@@ -45,7 +43,6 @@ export const createCCR = async (req: AuthRequest, res: Response) => {
         res.status(201).json({
             message: 'Catalog Change Request created successfully',
             ccr,
-            eco: ccr, // backward compat
         });
     } catch (error: any) {
         console.error('Create CCR error:', error);
@@ -61,7 +58,6 @@ export const getCCRs = async (req: AuthRequest, res: Response) => {
         if (req.query.type) {
             let t = req.query.type as string;
             if (t === 'PRODUCT') t = 'CATALOG_ITEM';
-            if (t === 'BOM') t = 'VARIANT_SET';
             filters.type = t as CCRType;
         }
         if (req.query.stageId) {
@@ -69,7 +65,7 @@ export const getCCRs = async (req: AuthRequest, res: Response) => {
         }
 
         const ccrs = await ccrService.getCCRs(userRole, filters);
-        res.json({ ccrs, ecos: ccrs });
+        res.json({ ccrs });
     } catch (error: any) {
         if (error.statusCode === 403 || (error.message && error.message.includes('Access denied'))) {
             return res.status(403).json({ error: error.message });
@@ -85,9 +81,9 @@ export const getCCRById = async (req: AuthRequest, res: Response) => {
         const userRole = req.user!.role;
 
         const ccr = await ccrService.getCCRById(id as string, userRole);
-        res.json({ ccr, eco: ccr });
+        res.json({ ccr });
     } catch (error: any) {
-        if (error.message === 'CCR not found' || error.message === 'ECO not found') {
+        if (error.message === 'CCR not found') {
             return res.status(404).json({ error: error.message });
         }
         if (error.message.includes('Access denied')) {
@@ -108,7 +104,6 @@ export const updateDraft = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'Draft updated successfully',
             ccr,
-            eco: ccr,
         });
     } catch (error: any) {
         console.error('Update draft error:', error);
@@ -150,7 +145,6 @@ export const submitForReview = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'CCR submitted for review successfully',
             ccr,
-            eco: ccr,
         });
     } catch (error: any) {
         console.error('Submit for review error:', error);
@@ -184,7 +178,6 @@ export const approveCCR = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'CCR approval recorded successfully',
             ...result,
-            eco: result.ccr,
         });
     } catch (error: any) {
         if (error.message.includes('Only approvers') || error.message.includes('Forbidden') || error.message.includes('Access denied')) {
@@ -206,7 +199,6 @@ export const rejectCCR = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'CCR rejected successfully',
             ccr,
-            eco: ccr,
         });
     } catch (error: any) {
         if (error.message.includes('Only approvers') || error.message.includes('Forbidden') || error.message.includes('Access denied')) {
@@ -226,7 +218,6 @@ export const applyCCR = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'CCR applied successfully. New version created.',
             ccr: result.ccr,
-            eco: result.ccr,
             newVersion: result.newVersion,
         });
     } catch (error: any) {
@@ -261,7 +252,6 @@ export const setMandatoryApproval = async (req: AuthRequest, res: Response) => {
         res.json({
             message: 'Mandatory approval flag updated successfully',
             ccr,
-            eco: ccr,
         });
     } catch (error: any) {
         if (error.message.includes('Only admins')) {
@@ -285,13 +275,4 @@ export const previewDiff = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Aliases for backwards compatibility
-export const createECO = createCCR;
-export const getECOs = getCCRs;
-export const getECOById = getCCRById;
-export const addDraftAttachment = addDraftContent;
-export const validateECO = validateCCR;
-export const approveECO = approveCCR;
-export const rejectECO = rejectCCR;
-export const applyECO = applyCCR;
-export const getECOStatistics = getCCRStatistics;
+

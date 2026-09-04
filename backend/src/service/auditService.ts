@@ -70,8 +70,6 @@ export const getAuditLogsByCCR = async (ccrId: string) => {
     return { logs };
 };
 
-export const getAuditLogsByECO = getAuditLogsByCCR;
-
 export const getAuditLogsByEntity = async (entity: string, entityId: string) => {
     const logs = await db.query.auditLogs.findMany({
         where: and(
@@ -95,6 +93,5 @@ export const getAuditLogsByEntity = async (entity: string, entityId: string) => 
 export const auditService = {
     getAuditLogs,
     getAuditLogsByCCR,
-    getAuditLogsByECO,
     getAuditLogsByEntity,
 };

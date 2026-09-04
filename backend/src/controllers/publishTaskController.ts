@@ -45,5 +45,4 @@ export const completePublishTask = async (req: Request, res: Response) => {
     }
 };
 
-export const getOperationsTasks = getPublishTasks;
-export const completeOperationsTask = completePublishTask;
+

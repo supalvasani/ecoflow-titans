@@ -1,17 +1,13 @@
-// Approver Dashboard - Enhanced with ECO Statistics and Pending Reviews
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ecoService } from '../services/ecoService';
-import type { ECO } from '../types/eco';
-import { ECOType } from '../types/eco';
+import { ccrService } from '../services/ccrService';
+import type { CatalogChangeRequest } from '../types/ccr';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { CheckCircle, XCircle, Eye, AlertCircle, FileText, Clock } from 'lucide-react';
+import { CheckCircle, AlertCircle, ShieldAlert, ArrowRight } from 'lucide-react';
 
-interface ECOStats {
+interface CCRStats {
     pending: number;
     approved: number;
     rejected: number;
@@ -21,8 +17,8 @@ interface ECOStats {
 export const ApproverDashboard = () => {
     const { token } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState<ECOStats>({ pending: 0, approved: 0, rejected: 0, total: 0 });
-    const [pendingECOs, setPendingECOs] = useState<ECO[]>([]);
+    const [stats, setStats] = useState<CCRStats>({ pending: 0, approved: 0, rejected: 0, total: 0 });
+    const [pendingCCRs, setPendingCCRs] = useState<CatalogChangeRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,25 +27,29 @@ export const ApproverDashboard = () => {
         try {
             setLoading(true);
 
-            // Fetch statistics from backend (optimized)
-            const statsData = await ecoService.getECOStatistics(token);
-            const statsArray = statsData.statistics;
+            // Fetch statistics & pending items
+            const [statsData, ccrsData] = await Promise.all([
+                ccrService.getCCRStatistics(token),
+                ccrService.getCCRs(token),
+            ]);
 
-            // Calculate counts from statistics - Using exact DB stage names
-            const pending = statsArray.find(s => s.stageName === 'Under Review')?.count || 0;
-            const approved = statsArray.find(s => s.stageName === 'Approved')?.count || 0;
-            const rejected = statsArray.find(s => s.stageName === 'Rejected')?.count || 0;
-            const total = statsArray.reduce((sum, s) => sum + s.count, 0);
+            const statsArray = statsData.statistics || [];
+            const pending = statsArray.find((s: any) => s.stageName === 'Under Review' || s.stageName === 'Pending Review')?.count || 0;
+            const approved = statsArray.find((s: any) => s.stageName === 'Approved')?.count || 0;
+            const rejected = statsArray.find((s: any) => s.stageName === 'Rejected')?.count || 0;
+            const total = statsArray.reduce((sum: number, s: any) => sum + (s.count || 0), 0);
 
             setStats({ pending, approved, rejected, total });
 
-            // Fetch only pending ECOs for the table (more efficient)
-            const ecosData = await ecoService.getECOs(token);
-            setPendingECOs(ecosData.ecos.filter(eco => eco.stage.name === 'Under Review').slice(0, 5));
-
+            const allList = ccrsData.ccrs || [];
+            const pendingList = allList.filter((c: any) => {
+                const s = (c.stage?.name || '').toUpperCase();
+                return s === 'UNDER REVIEW' || s === 'REVIEW' || s === 'IN REVIEW' || s === 'PENDING_REVIEW';
+            });
+            setPendingCCRs(pendingList);
             setError(null);
         } catch (err: any) {
-            setError(err.message || 'Failed to load dashboard data');
+            setError(err.message || 'Failed to load category approver queue');
         } finally {
             setLoading(false);
         }
@@ -57,111 +57,183 @@ export const ApproverDashboard = () => {
 
     useEffect(() => {
         loadDashboardData();
-        // Auto-refresh every 30 seconds
         const interval = setInterval(loadDashboardData, 30000);
         return () => clearInterval(interval);
     }, [token]);
 
-    const StatCard = ({ title, value, icon: Icon, color }: { title: string; value: number; icon: any; color: string }) => (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className={`h-4 w-4 ${color}`} />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
-            </CardContent>
-        </Card>
-    );
-
     return (
         <DashboardLayout>
-            <div className="max-w-7xl mx-auto space-y-8">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Approver Dashboard</h2>
-                    <p className="text-muted-foreground">Review and authorize engineering changes</p>
+            <div className="max-w-6xl mx-auto space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--line)' }}>
+                    <div>
+                        <h1 className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            Category Approver Console
+                        </h1>
+                        <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--ink-muted)' }}>
+                            Review pending catalog change proposals, audit margin thresholds, and record multi-approver quorum decisions.
+                        </p>
+                    </div>
                 </div>
 
-                {/* Statistics Cards */}
-                <div className="grid gap-4 md:grid-cols-4">
-                    <StatCard title="Pending Review" value={stats.pending} icon={Clock} color="text-yellow-600" />
-                    <StatCard title="Approved" value={stats.approved} icon={CheckCircle} color="text-green-600" />
-                    <StatCard title="Rejected" value={stats.rejected} icon={XCircle} color="text-red-600" />
-                    <StatCard title="Total ECOs" value={stats.total} icon={FileText} color="text-blue-600" />
-                </div>
-
-                {/* Error Display */}
                 {error && (
-                    <div className="bg-destructive/15 text-destructive p-4 rounded-md flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        {error}
+                    <div
+                        className="p-3 border text-xs font-sans flex items-start gap-2"
+                        style={{ backgroundColor: '#FDF2F0', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                    >
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>{error}</div>
                     </div>
                 )}
 
-                {/* Pending ECOs Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>ECOs Awaiting Your Review</CardTitle>
-                        <CardDescription>
-                            {pendingECOs.length === 0
-                                ? 'No ECOs pending review at the moment.'
-                                : `${pendingECOs.length} ECO${pendingECOs.length > 1 ? 's' : ''} pending your approval`}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <div className="text-center py-8">Loading...</div>
-                        ) : pendingECOs.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
-                                <p>All caught up! No pending reviews.</p>
-                            </div>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Title</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Created By</TableHead>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {pendingECOs.map((eco) => (
-                                        <TableRow key={eco.id}>
-                                            <TableCell className="font-medium">{eco.title}</TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center text-xs">
-                                                    {eco.type === ECOType.PRODUCT ? (
-                                                        <FileText className="mr-1 h-3 w-3 text-blue-500" />
+                {/* KPI Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-white border p-4 space-y-1" style={{ borderColor: 'var(--line)' }}>
+                        <div className="text-[11px] font-sans font-medium uppercase tracking-wider" style={{ color: 'var(--warning)' }}>
+                            Awaiting Your Decision
+                        </div>
+                        <div className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            {loading ? '—' : stats.pending}
+                        </div>
+                        <div className="text-[10px] font-sans" style={{ color: 'var(--ink-muted)' }}>Under review queue</div>
+                    </div>
+
+                    <div className="bg-white border p-4 space-y-1" style={{ borderColor: 'var(--line)' }}>
+                        <div className="text-[11px] font-sans font-medium uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
+                            Authorized Sign-Offs
+                        </div>
+                        <div className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            {loading ? '—' : stats.approved}
+                        </div>
+                        <div className="text-[10px] font-sans" style={{ color: 'var(--ink-muted)' }}>Approved and advanced</div>
+                    </div>
+
+                    <div className="bg-white border p-4 space-y-1" style={{ borderColor: 'var(--line)' }}>
+                        <div className="text-[11px] font-sans font-medium uppercase tracking-wider" style={{ color: 'var(--danger)' }}>
+                            Rejected Proposals
+                        </div>
+                        <div className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            {loading ? '—' : stats.rejected}
+                        </div>
+                        <div className="text-[10px] font-sans" style={{ color: 'var(--ink-muted)' }}>Returned with feedback</div>
+                    </div>
+
+                    <div className="bg-white border p-4 space-y-1" style={{ borderColor: 'var(--line)' }}>
+                        <div className="text-[11px] font-sans font-medium uppercase tracking-wider" style={{ color: 'var(--ink-muted)' }}>
+                            Total Lifecycle CCRs
+                        </div>
+                        <div className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            {loading ? '—' : stats.total}
+                        </div>
+                        <div className="text-[10px] font-sans" style={{ color: 'var(--ink-muted)' }}>All stages recorded</div>
+                    </div>
+                </div>
+
+                {/* Pending Approvals Table */}
+                <div className="bg-white border" style={{ borderColor: 'var(--line)' }}>
+                    <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--line)' }}>
+                        <div>
+                            <h2 className="text-sm font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                                Change Requests Awaiting Category Sign-Off
+                            </h2>
+                            <p className="text-[11px] font-sans" style={{ color: 'var(--ink-muted)' }}>
+                                Review proposed pricing, channel rules, and regional localization assets before approving.
+                            </p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate('/ccrs')}
+                            className="text-xs font-sans h-7"
+                            style={{ color: 'var(--ink-muted)' }}
+                        >
+                            All Requests <ArrowRight className="ml-1 h-3 w-3" />
+                        </Button>
+                    </div>
+
+                    {loading ? (
+                        <div className="p-12 text-center text-xs font-sans" style={{ color: 'var(--ink-muted)' }}>
+                            Loading approval queue...
+                        </div>
+                    ) : pendingCCRs.length === 0 ? (
+                        <div className="p-12 text-center text-xs font-sans space-y-2">
+                            <CheckCircle className="h-6 w-6 mx-auto" style={{ color: 'var(--accent)' }} />
+                            <div className="font-medium text-ink">Review Queue Clear</div>
+                            <p style={{ color: 'var(--ink-muted)' }}>There are currently no change requests pending approval.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs font-sans text-left">
+                                <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                    <tr>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted">Title / Request ID</th>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted">Type</th>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted">Quorum Progress</th>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted">Warnings</th>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted">Author</th>
+                                        <th className="py-2.5 px-4 font-medium text-ink-muted text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                    {pendingCCRs.map((ccr) => {
+                                        const approvals = ccr.approvals || [];
+                                        const approvedCount = approvals.filter((a) => a.decision === 'APPROVED').length;
+                                        const minReq = ccr.stage?.minApprovals || 1;
+
+                                        return (
+                                            <tr
+                                                key={ccr.id}
+                                                onClick={() => navigate(`/ccrs/${ccr.id}`)}
+                                                className="hover:bg-stone-50/50 cursor-pointer transition-colors"
+                                            >
+                                                <td className="py-3 px-4">
+                                                    <div className="font-medium text-ink">{ccr.title}</div>
+                                                    <div className="font-mono text-[10px]" style={{ color: 'var(--ink-muted)' }}>
+                                                        CCR-{ccr.id.substring(0, 8)}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4 font-mono text-[11px] text-ink-muted">
+                                                    {ccr.type}
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className="font-mono text-[11px] px-2 py-0.5 border" style={{ borderColor: 'var(--line)', backgroundColor: '#F7F6F3' }}>
+                                                        {approvedCount} of {minReq} Approved
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    {ccr.promotionConflictFlag ? (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 border"
+                                                            style={{ borderColor: 'var(--warning)', color: '#6B4F1D', backgroundColor: '#FDF8E8' }}
+                                                        >
+                                                            <ShieldAlert className="h-3 w-3" />
+                                                            PROMOTION CONFLICT
+                                                        </span>
                                                     ) : (
-                                                        <FileText className="mr-1 h-3 w-3 text-orange-500" />
+                                                        <span className="text-[11px] text-ink-muted">—</span>
                                                     )}
-                                                    {eco.type}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>{eco.createdBy?.name || eco.createdBy?.email}</TableCell>
-                                            <TableCell>{new Date(eco.createdAt).toLocaleDateString()}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" onClick={() => navigate(`/ecos/${eco.id}`)}>
-                                                    <Eye className="h-4 w-4 mr-2" /> Review
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                        {pendingECOs.length > 0 && (
-                            <div className="mt-4 text-center">
-                                <Button variant="outline" onClick={() => navigate('/ecos')}>
-                                    View All ECOs
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                                </td>
+                                                <td className="py-3 px-4 text-ink-muted text-[11px]">
+                                                    {ccr.createdBy?.name || ccr.createdBy?.email || '—'}
+                                                </td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/ccrs/${ccr.id}`); }}
+                                                        className="h-7 text-xs font-sans px-3 text-white"
+                                                        style={{ backgroundColor: 'var(--accent)' }}
+                                                    >
+                                                        Review & Decide
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
         </DashboardLayout>
     );

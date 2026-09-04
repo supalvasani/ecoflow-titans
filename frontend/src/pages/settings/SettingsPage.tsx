@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { settingsService } from '../../services/settingsService';
-import type { ECOStage, ApprovalRules } from '../../services/settingsService';
+import type { CCRStage, ApprovalRules } from '../../services/settingsService';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Settings as SettingsIcon, Shield, GitBranch, AlertCircle, Save, Plus, Trash2 } from 'lucide-react';
+import { Input } from '../../components/ui/input';
+import { AlertCircle, Check, Save, Plus, Trash2, GitBranch, ShieldCheck } from 'lucide-react';
 
 export default function SettingsPage() {
     const { token } = useAuth();
     const [activeTab, setActiveTab] = useState<'stages' | 'approval'>('stages');
 
-    // ECO Stages state
-    const [stages, setStages] = useState<ECOStage[]>([]);
+    // CCR Stages state
+    const [stages, setStages] = useState<CCRStage[]>([]);
     const [stagesLoading, setStagesLoading] = useState(true);
     const [stagesError, setStagesError] = useState<string | null>(null);
     const [stagesSaving, setStagesSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // Approval Rules state
     const [approvalRules, setApprovalRules] = useState<ApprovalRules | null>(null);
@@ -39,7 +40,7 @@ export default function SettingsPage() {
             setStages(fetchedStages);
             setStagesError(null);
         } catch (err: any) {
-            setStagesError(err.message || 'Failed to load stages');
+            setStagesError(err.message || 'Failed to load CCR stages');
         } finally {
             setStagesLoading(false);
         }
@@ -63,7 +64,10 @@ export default function SettingsPage() {
         if (!token) return;
         try {
             setStagesSaving(true);
+            setSuccessMessage(null);
+            setStagesError(null);
             await settingsService.updateStages(token, stages);
+            setSuccessMessage('CCR stage sequence updated successfully.');
             await fetchStages();
         } catch (err: any) {
             setStagesError(err.message || 'Failed to save stages');
@@ -76,7 +80,10 @@ export default function SettingsPage() {
         if (!token || !approvalRules) return;
         try {
             setRulesSaving(true);
+            setSuccessMessage(null);
+            setRulesError(null);
             await settingsService.updateApprovalRules(token, approvalRules);
+            setSuccessMessage('Approval permissions and quorum rules updated.');
             await fetchApprovalRules();
         } catch (err: any) {
             setRulesError(err.message || 'Failed to save approval rules');
@@ -85,228 +92,275 @@ export default function SettingsPage() {
         }
     };
 
-    const SettingsTab = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-        >
-            <Icon className="h-4 w-4" />
-            {label}
-        </button>
-    );
-
     return (
         <DashboardLayout>
-            <div className="max-w-7xl mx-auto space-y-6">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <SettingsIcon className="h-8 w-8" />
-                        Settings
-                    </h2>
-                    <p className="text-muted-foreground">Configure system settings and workflows</p>
+            <div className="max-w-6xl mx-auto space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--line)' }}>
+                    <div>
+                        <h1 className="text-2xl font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                            Governance & Workflow Settings
+                        </h1>
+                        <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--ink-muted)' }}>
+                            Configure CCR lifecycle stages, mandatory sign-off thresholds, and role-based authority.
+                        </p>
+                    </div>
+
+                    <Button
+                        size="sm"
+                        onClick={activeTab === 'stages' ? handleSaveStages : handleSaveRules}
+                        disabled={stagesSaving || rulesSaving}
+                        className="font-sans text-xs h-8 text-white"
+                        style={{ backgroundColor: 'var(--accent)' }}
+                    >
+                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        {stagesSaving || rulesSaving ? 'Saving Changes...' : 'Save Workflow Changes'}
+                    </Button>
                 </div>
 
-                {/* Settings Tabs */}
-                <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8">
-                        <SettingsTab id="stages" label="ECO Stages" icon={GitBranch} />
-                        <SettingsTab id="approval" label="Approval Rules" icon={Shield} />
-                    </nav>
-                </div>
-
-                {/* ECO Stages Management */}
-                {activeTab === 'stages' && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <CardTitle>ECO Stage Configuration</CardTitle>
-                                <Button onClick={handleSaveStages} disabled={stagesSaving}>
-                                    <Save className="mr-2 h-4 w-4" />
-                                    {stagesSaving ? 'Saving...' : 'Save Changes'}
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {stagesError && (
-                                <div className="bg-destructive/15 text-destructive p-4 rounded-md mb-4 flex items-center">
-                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                    {stagesError}
-                                </div>
-                            )}
-
-                            {stagesLoading ? (
-                                <div className="text-center py-10">Loading stages...</div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 pb-2 border-b">
-                                        <div className="col-span-1">Order</div>
-                                        <div className="col-span-4">Stage Name</div>
-                                        <div className="col-span-3">Requires Approval</div>
-                                        <div className="col-span-3">Is Final</div>
-                                        <div className="col-span-1"></div>
-                                    </div>
-
-                                    {stages.map((stage, index) => (
-                                        <div key={stage.id} className="grid grid-cols-12 gap-4 items-center">
-                                            <div className="col-span-1">
-                                                <input
-                                                    type="number"
-                                                    value={stage.sequence}
-                                                    onChange={(e) => {
-                                                        const newStages = [...stages];
-                                                        newStages[index].sequence = parseInt(e.target.value);
-                                                        setStages(newStages);
-                                                    }}
-                                                    className="w-full px-2 py-1 border rounded"
-                                                />
-                                            </div>
-                                            <div className="col-span-4">
-                                                <input
-                                                    type="text"
-                                                    value={stage.name}
-                                                    onChange={(e) => {
-                                                        const newStages = [...stages];
-                                                        newStages[index].name = e.target.value;
-                                                        setStages(newStages);
-                                                    }}
-                                                    className="w-full px-3 py-2 border rounded"
-                                                />
-                                            </div>
-                                            <div className="col-span-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={stage.requiresApproval}
-                                                    onChange={(e) => {
-                                                        const newStages = [...stages];
-                                                        newStages[index].requiresApproval = e.target.checked;
-                                                        setStages(newStages);
-                                                    }}
-                                                    className="h-4 w-4"
-                                                />
-                                            </div>
-                                            <div className="col-span-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={stage.isFinal}
-                                                    onChange={(e) => {
-                                                        const newStages = [...stages];
-                                                        newStages[index].isFinal = e.target.checked;
-                                                        setStages(newStages);
-                                                    }}
-                                                    className="h-4 w-4"
-                                                />
-                                            </div>
-                                            <div className="col-span-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setStages(stages.filter((_, i) => i !== index));
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setStages([...stages, {
-                                                id: '',
-                                                name: 'New Stage',
-                                                sequence: stages.length + 1,
-                                                requiresApproval: false,
-                                                isFinal: false,
-                                            }]);
-                                        }}
-                                    >
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Stage
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                {/* Notifications */}
+                {(stagesError || rulesError) && (
+                    <div
+                        className="p-3 border text-xs font-sans flex items-start gap-2"
+                        style={{ backgroundColor: '#FDF2F0', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                    >
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>{stagesError || rulesError}</div>
+                    </div>
+                )}
+                {successMessage && (
+                    <div
+                        className="p-3 border text-xs font-sans flex items-start gap-2"
+                        style={{ backgroundColor: '#EBF2EE', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                    >
+                        <Check className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div>{successMessage}</div>
+                    </div>
                 )}
 
-                {/* Approval Rules */}
-                {activeTab === 'approval' && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <CardTitle>Approval Rule Configuration</CardTitle>
-                                <Button onClick={handleSaveRules} disabled={rulesSaving}>
-                                    <Save className="mr-2 h-4 w-4" />
-                                    {rulesSaving ? 'Saving...' : 'Save Changes'}
-                                </Button>
+                {/* Settings Tab Navigation */}
+                <div className="border-b flex items-center gap-6 text-xs font-sans font-medium" style={{ borderColor: 'var(--line)' }}>
+                    <button
+                        onClick={() => { setActiveTab('stages'); setSuccessMessage(null); }}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'stages' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'stages' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'stages' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <GitBranch className="h-3.5 w-3.5" />
+                        CCR Lifecycle Stages ({stages.length})
+                    </button>
+
+                    <button
+                        onClick={() => { setActiveTab('approval'); setSuccessMessage(null); }}
+                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'approval' ? 'border-accent text-accent font-semibold' : 'border-transparent text-ink-muted'
+                        }`}
+                        style={{
+                            borderColor: activeTab === 'approval' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'approval' ? 'var(--accent)' : 'var(--ink-muted)',
+                        }}
+                    >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Role Authority & Quorum Rules
+                    </button>
+                </div>
+
+                {/* TAB 1: CCR STAGES */}
+                {activeTab === 'stages' && (
+                    <div className="bg-white border p-5 space-y-4" style={{ borderColor: 'var(--line)' }}>
+                        <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--line)' }}>
+                            <div>
+                                <h2 className="text-sm font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                                    Sequential Stage Pipeline
+                                </h2>
+                                <p className="text-[11px] font-sans" style={{ color: 'var(--ink-muted)' }}>
+                                    Define the required lifecycle stages each Change Request must progress through.
+                                </p>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            {rulesError && (
-                                <div className="bg-destructive/15 text-destructive p-4 rounded-md mb-4 flex items-center">
-                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                    {rulesError}
-                                </div>
-                            )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setStages([
+                                        ...stages,
+                                        {
+                                            id: `stage-${Date.now()}`,
+                                            name: 'New Stage',
+                                            sequence: stages.length + 1,
+                                            requiresApproval: false,
+                                            isFinal: false,
+                                        },
+                                    ]);
+                                }}
+                                className="text-xs font-sans h-7"
+                            >
+                                <Plus className="mr-1 h-3.5 w-3.5" />
+                                Add Stage
+                            </Button>
+                        </div>
 
-                            {rulesLoading ? (
-                                <div className="text-center py-10">Loading approval rules...</div>
-                            ) : approvalRules && (
-                                <div className="space-y-6">
-                                    <div>
-                                        <h3 className="text-lg font-semibold mb-4">Role-Based Permissions</h3>
-                                        <div className="grid grid-cols-3 gap-4 font-semibold text-sm text-gray-600 pb-2 border-b">
-                                            <div>Role</div>
-                                            <div>Can Approve</div>
-                                            <div>Can Reject</div>
-                                        </div>
-
-                                        {approvalRules.rules.map((rule, index) => (
-                                            <div key={rule.role} className="grid grid-cols-3 gap-4 items-center py-3 border-b">
-                                                <div className="font-medium">{rule.role}</div>
-                                                <div>
+                        {stagesLoading ? (
+                            <div className="p-8 text-center text-xs font-sans" style={{ color: 'var(--ink-muted)' }}>
+                                Loading stage configurations...
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs font-sans text-left">
+                                    <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                        <tr>
+                                            <th className="py-2.5 px-3 font-medium text-ink-muted w-16">Seq</th>
+                                            <th className="py-2.5 px-3 font-medium text-ink-muted">Stage Name</th>
+                                            <th className="py-2.5 px-3 font-medium text-ink-muted text-center">Requires Approval</th>
+                                            <th className="py-2.5 px-3 font-medium text-ink-muted text-center">Is Final State</th>
+                                            <th className="py-2.5 px-3 font-medium text-ink-muted text-right w-16">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                        {stages.map((stage, index) => (
+                                            <tr key={stage.id || index} className="hover:bg-stone-50/50">
+                                                <td className="py-2.5 px-3">
+                                                    <Input
+                                                        type="number"
+                                                        value={stage.sequence}
+                                                        onChange={(e) => {
+                                                            const updated = [...stages];
+                                                            updated[index].sequence = parseInt(e.target.value) || 0;
+                                                            setStages(updated);
+                                                        }}
+                                                        className="h-7 w-14 text-xs font-mono"
+                                                    />
+                                                </td>
+                                                <td className="py-2.5 px-3">
+                                                    <Input
+                                                        type="text"
+                                                        value={stage.name}
+                                                        onChange={(e) => {
+                                                            const updated = [...stages];
+                                                            updated[index].name = e.target.value;
+                                                            setStages(updated);
+                                                        }}
+                                                        className="h-7 text-xs max-w-sm"
+                                                    />
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center">
                                                     <input
                                                         type="checkbox"
-                                                        checked={rule.canApprove}
+                                                        checked={stage.requiresApproval}
                                                         onChange={(e) => {
-                                                            const newRules = { ...approvalRules };
-                                                            newRules.rules[index].canApprove = e.target.checked;
-                                                            setApprovalRules(newRules);
+                                                            const updated = [...stages];
+                                                            updated[index].requiresApproval = e.target.checked;
+                                                            setStages(updated);
                                                         }}
-                                                        className="h-4 w-4"
+                                                        className="h-4 w-4 cursor-pointer accent-stone-700"
                                                     />
-                                                </div>
-                                                <div>
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center">
                                                     <input
                                                         type="checkbox"
-                                                        checked={rule.canReject}
+                                                        checked={stage.isFinal}
                                                         onChange={(e) => {
-                                                            const newRules = { ...approvalRules };
-                                                            newRules.rules[index].canReject = e.target.checked;
-                                                            setApprovalRules(newRules);
+                                                            const updated = [...stages];
+                                                            updated[index].isFinal = e.target.checked;
+                                                            setStages(updated);
                                                         }}
-                                                        className="h-4 w-4"
+                                                        className="h-4 w-4 cursor-pointer accent-stone-700"
                                                     />
-                                                </div>
-                                            </div>
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setStages(stages.filter((_, i) => i !== index))}
+                                                        className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
                                         ))}
-                                    </div>
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
 
-                                    <div>
-                                        <h3 className="text-lg font-semibold mb-2">Stages Requiring Approval</h3>
-                                        <p className="text-sm text-gray-600 mb-4">
-                                            Current stages: {approvalRules.requiresApprovalStages.join(', ')}
-                                        </p>
-                                    </div>
+                {/* TAB 2: APPROVAL RULES */}
+                {activeTab === 'approval' && (
+                    <div className="bg-white border p-5 space-y-6" style={{ borderColor: 'var(--line)' }}>
+                        <div>
+                            <h2 className="text-sm font-serif font-normal" style={{ color: 'var(--ink)' }}>
+                                Role-Based Approval Permissions
+                            </h2>
+                            <p className="text-[11px] font-sans" style={{ color: 'var(--ink-muted)' }}>
+                                Control which roles are empowered to approve or reject change requests during review gates.
+                            </p>
+                        </div>
+
+                        {rulesLoading ? (
+                            <div className="p-8 text-center text-xs font-sans" style={{ color: 'var(--ink-muted)' }}>
+                                Loading approval authority rules...
+                            </div>
+                        ) : approvalRules && (
+                            <div className="space-y-6">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs font-sans text-left">
+                                        <thead className="border-b" style={{ borderColor: 'var(--line)', backgroundColor: '#FBFBFA' }}>
+                                            <tr>
+                                                <th className="py-2.5 px-3 font-medium text-ink-muted">Enterprise Role</th>
+                                                <th className="py-2.5 px-3 font-medium text-ink-muted text-center">Can Authorize Approval</th>
+                                                <th className="py-2.5 px-3 font-medium text-ink-muted text-center">Can Reject Proposal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                                            {approvalRules.rules.map((rule, idx) => (
+                                                <tr key={rule.role} className="hover:bg-stone-50/50">
+                                                    <td className="py-3 px-3 font-mono text-[11px] font-medium text-ink">
+                                                        {rule.role}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={rule.canApprove}
+                                                            onChange={(e) => {
+                                                                const updated = { ...approvalRules };
+                                                                updated.rules[idx].canApprove = e.target.checked;
+                                                                setApprovalRules(updated);
+                                                            }}
+                                                            className="h-4 w-4 cursor-pointer accent-stone-700"
+                                                        />
+                                                    </td>
+                                                    <td className="py-3 px-3 text-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={rule.canReject}
+                                                            onChange={(e) => {
+                                                                const updated = { ...approvalRules };
+                                                                updated.rules[idx].canReject = e.target.checked;
+                                                                setApprovalRules(updated);
+                                                            }}
+                                                            className="h-4 w-4 cursor-pointer accent-stone-700"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
+
+                                <div className="p-4 border bg-stone-50 space-y-1 text-xs font-sans" style={{ borderColor: 'var(--line)' }}>
+                                    <div className="font-medium text-ink">Stages Requiring Mandatory Approval Gate</div>
+                                    <p style={{ color: 'var(--ink-muted)' }}>
+                                        {approvalRules.requiresApprovalStages?.join(', ') || 'Under Review, Review'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </DashboardLayout>

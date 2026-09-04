@@ -36,7 +36,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
 
 export const getCCRAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
-        const id = req.params.ccrId || req.params.ecoId;
+        const id = req.params.ccrId;
         if (!id || Array.isArray(id)) {
             return res.status(400).json({ error: 'CCR ID is required' });
         }
@@ -47,8 +47,6 @@ export const getCCRAuditLogs = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch CCR audit logs' });
     }
 };
-
-export const getECOAuditLogs = getCCRAuditLogs;
 
 export const getEntityAuditLogs = async (req: AuthRequest, res: Response) => {
     try {

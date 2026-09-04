@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { operationsService, type OperationsTask } from '../services/operationsService';
+import { operationsService, type PublishTask } from '../services/operationsService';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button';
 
 export const OperationsDashboard = () => {
     const { token } = useAuth();
-    const [tasks, setTasks] = useState<OperationsTask[]>([]);
+    const [tasks, setTasks] = useState<PublishTask[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -46,9 +46,9 @@ export const OperationsDashboard = () => {
         <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight mb-2">Operations Dashboard</h2>
+                    <h2 className="text-3xl font-bold tracking-tight mb-2">Storefront & Channel Operations</h2>
                     <p className="text-muted-foreground">
-                        Manage pending implementation tasks for active ECOs
+                        Manage pending publish and rollout tasks for approved Catalog Change Requests
                     </p>
                 </div>
 
@@ -77,7 +77,7 @@ export const OperationsDashboard = () => {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <ClipboardList className="h-5 w-5" />
-                            Pending Implementation Tasks
+                            Pending Rollout Tasks
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -99,7 +99,7 @@ export const OperationsDashboard = () => {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Task</TableHead>
-                                        <TableHead>ECO Trigger</TableHead>
+                                        <TableHead>CCR Trigger</TableHead>
                                         <TableHead>Type</TableHead>
                                         <TableHead>Created At</TableHead>
                                         <TableHead>Actions</TableHead>
@@ -117,11 +117,11 @@ export const OperationsDashboard = () => {
                                                 )}
                                             </TableCell>
                                             <TableCell className="font-mono text-sm">
-                                                {task.eco.title}
+                                                {task.ccr?.title || '—'}
                                             </TableCell>
                                             <TableCell>
                                                 <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
-                                                    {task.eco.type}
+                                                    {task.ccr?.type || 'CATALOG_ITEM'}
                                                 </span>
                                             </TableCell>
                                             <TableCell>

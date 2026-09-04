@@ -64,12 +64,6 @@ describe('SynchroShift End-to-End Acceptance Suite', () => {
         app.use('/api/settings', settingsRoutes);
         app.use('/api/publish-tasks', publishTaskRoutes);
 
-        // Aliases
-        app.use('/api/products', catalogItemRoutes);
-        app.use('/api/boms', variantSetRoutes);
-        app.use('/api/ecos', ccrRoutes);
-        app.use('/api/operations', publishTaskRoutes);
-
         await new Promise<void>((resolve) => {
             server = app.listen(0, () => {
                 const address = server.address() as any;

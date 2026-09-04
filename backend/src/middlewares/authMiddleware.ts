@@ -64,17 +64,17 @@ export const requireRole = (...roles: string[]) => {
  * Require Merchandiser or Admin (was: requireEngineerOrAdmin)
  */
 export const requireMerchandiserOrAdmin = () => {
-  return requireRole('MERCHANDISER', 'ENGINEERING_USER', 'ADMIN');
+  return requireRole('MERCHANDISER', 'ADMIN');
 };
-export const requireEngineerOrAdmin = requireMerchandiserOrAdmin;
+
 
 /**
  * Require Category Approver or Admin (was: requireApprover)
  */
 export const requireApproverOrAdmin = () => {
-  return requireRole('CATEGORY_APPROVER', 'APPROVER', 'ADMIN');
+  return requireRole('CATEGORY_APPROVER', 'ADMIN');
 };
-export const requireApprover = requireApproverOrAdmin;
+
 
 /**
  * Require Admin role only

@@ -1,4 +1,5 @@
-import type { AuditLog } from '../types/eco';
+import type { AuditLog } from '../types/ccr';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -78,17 +79,17 @@ class AuditService {
     }
 
     /**
-     * Get audit logs for a specific ECO
+     * Get audit logs for a specific CCR
      */
-    async getECOAuditLogs(token: string, ecoId: string): Promise<{ logs: AuditLog[] }> {
-        return this.request(`/api/audit?entity=ECO&entityId=${ecoId}`, token);
+    async getCCRAuditLogs(token: string, ccrId: string): Promise<{ logs: AuditLog[] }> {
+        return this.request(`/api/audit/ccr/${ccrId}`, token);
     }
 
     /**
-     * Get audit logs for a specific Product
+     * Get audit logs for a specific CatalogItem
      */
-    async getProductAuditLogs(token: string, productId: string): Promise<{ logs: AuditLog[] }> {
-        return this.request(`/api/audit?entity=Product&entityId=${productId}`, token);
+    async getCatalogItemAuditLogs(token: string, catalogItemId: string): Promise<{ logs: AuditLog[] }> {
+        return this.request(`/api/audit?entity=CatalogItem&entityId=${catalogItemId}`, token);
     }
 }
 

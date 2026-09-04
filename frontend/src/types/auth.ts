@@ -1,13 +1,13 @@
-// Auth Types for SynchroShift
+// SynchroShift Core Role and User Definitions
 
 export const Role = {
-    ENGINEERING_USER: 'ENGINEERING_USER',
-    APPROVER: 'APPROVER',
-    OPERATIONS_USER: 'OPERATIONS_USER',
+    MERCHANDISER: 'MERCHANDISER',
+    CATEGORY_APPROVER: 'CATEGORY_APPROVER',
+    STOREFRONT_VIEWER: 'STOREFRONT_VIEWER',
     ADMIN: 'ADMIN',
 } as const;
 
-export type Role = (typeof Role)[keyof typeof Role];
+export type Role = 'MERCHANDISER' | 'CATEGORY_APPROVER' | 'STOREFRONT_VIEWER' | 'ADMIN';
 
 export interface User {
     id: string;

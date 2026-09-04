@@ -12,7 +12,6 @@ export const createVariantSet = async (req: AuthRequest, res: Response) => {
         res.status(201).json({
             message: 'VariantSet created successfully',
             variantSet,
-            bom: variantSet, // backward compat
         });
     } catch (error: any) {
         console.error('Create VariantSet error:', error);
@@ -26,7 +25,7 @@ export const getVariantSets = async (req: AuthRequest, res: Response) => {
         const includeArchived = req.query.includeArchived === 'true';
 
         const variantSets = await variantSetService.getVariantSets(userRole, includeArchived);
-        res.json({ variantSets, boms: variantSets });
+        res.json({ variantSets });
     } catch (error: any) {
         console.error('Get VariantSets error:', error);
         res.status(500).json({ error: 'Failed to fetch VariantSets' });
@@ -39,9 +38,9 @@ export const getVariantSetById = async (req: AuthRequest, res: Response) => {
         const userRole = req.user!.role;
 
         const variantSet = await variantSetService.getVariantSetById(id as string, userRole);
-        res.json({ variantSet, bom: variantSet });
+        res.json({ variantSet });
     } catch (error: any) {
-        if (error.message === 'VariantSet not found' || error.message === 'BOM not found') {
+        if (error.message === 'VariantSet not found') {
             return res.status(404).json({ error: error.message });
         }
         console.error('Get VariantSet error:', error);
@@ -56,7 +55,7 @@ export const getVariantSetByCatalogItemId = async (req: AuthRequest, res: Respon
         const userRole = req.user!.role;
 
         const variantSet = await variantSetService.getVariantSetByCatalogItemId(targetId as string, userRole);
-        res.json({ variantSet, bom: variantSet });
+        res.json({ variantSet });
     } catch (error: any) {
         if (error.message && (error.message.includes('not found') || error.message.includes('No VariantSet found'))) {
             return res.status(404).json({ error: error.message });
@@ -109,10 +108,4 @@ export const toggleChannelPublishRule = async (req: AuthRequest, res: Response) 
     }
 };
 
-// Aliases for backwards compatibility
-export const createBOM = createVariantSet;
-export const getBOMs = getVariantSets;
-export const getBOMById = getVariantSetById;
-export const getBOMByProductId = getVariantSetByCatalogItemId;
-export const getBOMVersions = getVariantSetVersions;
-export const getActiveBOMVersion = getActiveVariantSetVersion;
+

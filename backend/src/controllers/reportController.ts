@@ -72,8 +72,4 @@ export const getArchivedCatalogItems = async (req: AuthRequest, res: Response) =
     }
 };
 
-// Aliases for backwards compatibility
-export const getECOHistory = getCCRHistory;
-export const getProductVersions = getCatalogItemVersions;
-export const getBOMHistory = getVariantSetHistory;
-export const getArchivedProducts = getArchivedCatalogItems;
+

@@ -1,217 +1,202 @@
 import type { ReactNode } from 'react';
-import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Role } from '../../types/auth';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FileText, Settings, LogOut, BarChart3, History, ChevronLeft, ChevronRight, Menu, Users } from 'lucide-react';
-import { Button } from '../ui/button';
+import {
+    LayoutDashboard,
+    Package,
+    GitBranch,
+    FileSpreadsheet,
+    BarChart2,
+    Settings,
+    LogOut,
+    Users
+} from 'lucide-react';
 
 interface DashboardLayoutProps {
     children: ReactNode;
+    title?: string;
+    subtitle?: string;
+    action?: ReactNode;
 }
 
-const SynchroShiftLogo = ({ className = "" }: { className?: string }) => (
-    <svg viewBox="0 0 40 40" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="40" height="40" rx="8" fill="url(#gradient)" />
-        <path d="M12 14h16M12 20h12M12 26h16" stroke="white" strokeWidth="3" strokeLinecap="round" />
-        <circle cx="28" cy="20" r="2" fill="white" />
-        <defs>
-            <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#6B9FD4" />
-                <stop offset="1" stopColor="#5A8EC3" />
-            </linearGradient>
-        </defs>
-    </svg>
-);
-
-interface NavLinkProps {
+interface NavItemProps {
     to: string;
     icon: any;
     label: string;
-    currentPath: string;
-    collapsed: boolean;
+    active: boolean;
+    badge?: number;
 }
 
-const SidebarNavLink = ({ to, icon: Icon, label, currentPath, collapsed }: NavLinkProps) => {
-    const isActive = currentPath === to;
+function NavItem({ to, icon: Icon, label, active, badge }: NavItemProps) {
     return (
         <Link
             to={to}
-            className={`flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group relative ${isActive
-                ? 'bg-primary-soft text-primary font-semibold shadow-sm'
-                : 'text-gray-700 hover:text-primary hover:bg-accent'
-                }`}
-            title={collapsed ? label : undefined}
+            className={`flex items-center justify-between px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                active
+                    ? 'bg-[#EAE7DF] text-[#1C1B19] font-semibold'
+                    : 'text-[#6B6862] hover:text-[#1C1B19] hover:bg-[#EFECE5]'
+            }`}
         >
-            <Icon className={`h-4 w-4 flex-shrink-0 ${collapsed ? '' : 'mr-3'}`} />
-            <span className={`truncate transition-all duration-300 ${collapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
-                {label}
-            </span>
-            {collapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                    {label}
-                </div>
+            <div className="flex items-center gap-2.5">
+                <Icon className={`w-3.5 h-3.5 ${active ? 'text-[#2F4B3C]' : 'text-[#6B6862]'}`} />
+                <span>{label}</span>
+            </div>
+            {badge !== undefined && badge > 0 && (
+                <span className="font-mono text-[10px] px-1.5 py-0.2 bg-[#DEDBD4] text-[#1C1B19] rounded">
+                    {badge}
+                </span>
             )}
         </Link>
     );
-};
+}
 
-export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children, title, subtitle, action }: DashboardLayoutProps) => {
     const { user, logout } = useAuth();
     const location = useLocation();
-    const [isScrolled, setIsScrolled] = useState(false);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-    useEffect(() => {
-        const handleScroll = () => {
-            const mainContent = document.querySelector('main');
-            if (mainContent && mainContent.scrollTop > 20) {
-                setIsScrolled(true);
-            } else {
-                setIsScrolled(false);
-            }
-        };
-
-        const mainContent = document.querySelector('main');
-        mainContent?.addEventListener('scroll', handleScroll);
-        return () => mainContent?.removeEventListener('scroll', handleScroll);
-    }, []);
 
     if (!user) return null;
 
-    const getDashboardLink = () => {
-        switch (user.role) {
-            case Role.ENGINEERING_USER: return '/engineering';
-            case Role.APPROVER: return '/approver';
-            case Role.OPERATIONS_USER: return '/operations';
-            case Role.ADMIN: return '/admin';
-            default: return '/';
-        }
+    const role = user.role;
+    const isMerchandiser = role === 'MERCHANDISER';
+    const isApprover = role === 'CATEGORY_APPROVER';
+    const isStorefront = role === 'STOREFRONT_VIEWER';
+    const isAdmin = role === 'ADMIN';
+
+    const getRoleLabel = () => {
+        if (isAdmin) return 'Administrator';
+        if (isApprover) return 'Category Approver';
+        if (isMerchandiser) return 'Merchandiser';
+        return 'Storefront Viewer';
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
-            {/* Top Bar */}
-            <header className={`bg-white border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'h-14 shadow-lg' : 'h-16 shadow-soft'
-                }`}>
-                <div className="flex items-center gap-3">
-                    {/* Mobile Menu Button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="md:hidden hover:bg-primary-soft hover:text-primary"
-                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    >
-                        <Menu className="h-5 w-5" />
-                    </Button>
-
-                    <div className={`flex items-center gap-3 transition-all duration-300 ${isScrolled ? 'scale-95' : 'scale-100'}`}>
-                        <SynchroShiftLogo className={`transition-all duration-300 ${isScrolled ? 'h-8 w-8' : 'h-10 w-10'}`} />
-                        <span className={`font-bold text-gray-900 transition-all duration-300 ${isScrolled ? 'text-lg' : 'text-xl'}`}>
-                            SynchroShift
+        <div className="min-h-screen bg-[#F7F6F3] text-[#1C1B19] flex">
+            {/* Left Sidebar */}
+            <aside className="w-56 bg-[#F7F6F3] border-r border-[#DEDBD4] flex flex-col justify-between shrink-0 select-none">
+                <div>
+                    {/* App Header */}
+                    <div className="px-4 py-4 border-b border-[#DEDBD4] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-[#2F4B3C] rounded-[2px]" />
+                            <span className="font-serif font-semibold text-sm tracking-tight text-[#1C1B19]">
+                                SynchroShift
+                            </span>
+                        </div>
+                        <span className="font-mono text-[10px] text-[#6B6862] border border-[#DEDBD4] px-1 py-0.5 rounded-[2px]">
+                            v2.4
                         </span>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="text-right hidden md:block">
-                        <div className="text-sm font-semibold text-gray-900">{user.name || 'User'}</div>
-                        <div className="text-xs text-gray-600">{user.email}</div>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={logout} title="Sign Out" className="hover:bg-primary-soft hover:text-primary">
-                        <LogOut className="h-5 w-5" />
-                    </Button>
-                </div>
-            </header>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
-                <aside className={`bg-white border-r border-border hidden md:flex md:flex-col shadow-soft transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-16' : 'w-64'
-                    }`}>
-                    <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                        {/* Menu Header with Toggle */}
-                        <div className="flex items-center justify-between mb-3 px-3">
-                            {!isSidebarCollapsed && (
-                                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                    MENU
-                                </div>
-                            )}
-                            <button
-                                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                                className={`text-gray-500 hover:text-primary transition-colors ${isSidebarCollapsed ? 'mx-auto' : ''}`}
-                                title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                            >
-                                {isSidebarCollapsed ? (
-                                    <ChevronRight className="h-4 w-4" />
-                                ) : (
-                                    <ChevronLeft className="h-4 w-4" />
-                                )}
-                            </button>
+                    {/* Navigation Links */}
+                    <nav className="p-2 space-y-0.5">
+                        <div className="px-2.5 pt-2 pb-1 text-[10px] font-mono text-[#6B6862] uppercase tracking-wider">
+                            Console
                         </div>
 
-                        <SidebarNavLink to={getDashboardLink()} icon={LayoutDashboard} label="Dashboard" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                        {/* 1. Dashboard */}
+                        <NavItem
+                            to="/"
+                            icon={LayoutDashboard}
+                            label="Dashboard"
+                            active={location.pathname === '/' || location.pathname === '/engineering' || location.pathname === '/approver' || location.pathname === '/operations' || location.pathname === '/admin'}
+                        />
 
-                        {/* Information Architecture: Everyone sees Products */}
-                        <SidebarNavLink to="/products" icon={Package} label="Products" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                        {/* 2. Catalog */}
+                        <NavItem
+                            to="/products"
+                            icon={Package}
+                            label="Catalog Items"
+                            active={location.pathname.startsWith('/products') || location.pathname.startsWith('/catalog')}
+                        />
 
-                        {/* Engineering & Admin Links */}
-                        {(user.role === Role.ENGINEERING_USER || user.role === Role.ADMIN) && (
+                        {/* 3. Variant Sets */}
+                        <NavItem
+                            to="/variant-sets"
+                            icon={GitBranch}
+                            label="Variant Sets"
+                            active={location.pathname.startsWith('/variant-sets')}
+                        />
+
+                        {/* 4. Change Requests (CCRs) - Hidden for Storefront */}
+                        {!isStorefront && (
+                            <NavItem
+                                to="/ccrs"
+                                icon={FileSpreadsheet}
+                                label="Change Requests"
+                                active={location.pathname.startsWith('/ccrs')}
+                            />
+                        )}
+
+                        {/* 5. Reports - Hidden for Storefront */}
+                        {!isStorefront && (
+                            <NavItem
+                                to="/reports"
+                                icon={BarChart2}
+                                label="Reports"
+                                active={location.pathname.startsWith('/reports')}
+                            />
+                        )}
+
+                        {/* 6. Settings & Users - Admin Only */}
+                        {isAdmin && (
                             <>
-                                <SidebarNavLink to="/ecos" icon={FileText} label="ECOs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                                <SidebarNavLink to="/boms" icon={Package} label="BOMs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                            </>
-                        )}
-
-                        {/* Operations User - BOMs (Read-Only) */}
-                        {user.role === Role.OPERATIONS_USER && (
-                            <SidebarNavLink to="/boms" icon={Package} label="BOMs (Active)" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                        )}
-
-                        {/* Approver Links - Only show if not admin */}
-                        {user.role === Role.APPROVER && (
-                            <SidebarNavLink to="/ecos" icon={FileText} label="Pending Approvals" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                        )}
-
-                        {/* Operations Links - Removed production and inventory */}
-                        {/* Operations users now only access BOMs through their dashboard */}
-
-                        {/* Reports & Audit - Available to all except Operations */}
-                        {user.role !== Role.OPERATIONS_USER && (
-                            <>
-                                {!isSidebarCollapsed && (
-                                    <div className="pt-4 pb-2">
-                                        <div className="h-px bg-border mx-3" />
-                                    </div>
-                                )}
-                                <SidebarNavLink to="/reports" icon={BarChart3} label="Reports" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                                <SidebarNavLink to="/audit" icon={History} label="Audit Logs" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                            </>
-                        )}
-
-                        {/* Admin Only */}
-                        {user.role === Role.ADMIN && (
-                            <>
-                                {!isSidebarCollapsed && (
-                                    <>
-                                        <div className="pt-4 pb-2">
-                                            <div className="h-px bg-border mx-3" />
-                                        </div>
-                                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-3">
-                                            ADMIN
-                                        </div>
-                                    </>
-                                )}
-                                <SidebarNavLink to="/admin/users" icon={Users} label="Users" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
-                                <SidebarNavLink to="/settings" icon={Settings} label="Settings" currentPath={location.pathname} collapsed={isSidebarCollapsed} />
+                                <div className="px-2.5 pt-4 pb-1 text-[10px] font-mono text-[#6B6862] uppercase tracking-wider">
+                                    Governance
+                                </div>
+                                <NavItem
+                                    to="/settings"
+                                    icon={Settings}
+                                    label="Stage Rules"
+                                    active={location.pathname.startsWith('/settings')}
+                                />
+                                <NavItem
+                                    to="/admin/users"
+                                    icon={Users}
+                                    label="User Directory"
+                                    active={location.pathname.startsWith('/admin/users')}
+                                />
                             </>
                         )}
                     </nav>
-                </aside>
+                </div>
 
-                {/* Main Content */}
-                <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-background">
-                    <div className="max-w-7xl mx-auto">
-                        {children}
+                {/* Footer User Info & Sign Out */}
+                <div className="p-3 border-t border-[#DEDBD4] bg-[#F7F6F3]">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="truncate">
+                            <div className="text-xs font-medium text-[#1C1B19] truncate">{user.name || user.email}</div>
+                            <div className="text-[10px] text-[#6B6862] flex items-center gap-1.5 mt-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#2F4B3C]" />
+                                {getRoleLabel()}
+                            </div>
+                        </div>
                     </div>
+                    <button
+                        onClick={logout}
+                        className="w-full flex items-center justify-center gap-1.5 py-1 text-[11px] text-[#6B6862] hover:text-[#8C3B2E] border border-[#DEDBD4] hover:border-[#8C3B2E] rounded transition-colors bg-white"
+                    >
+                        <LogOut className="w-3 h-3" />
+                        Sign Out
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+                {/* Header Context Bar */}
+                {(title || action) && (
+                    <header className="px-6 py-4 border-b border-[#DEDBD4] bg-white flex items-center justify-between shrink-0">
+                        <div>
+                            {title && <h1 className="text-lg font-serif font-medium text-[#1C1B19]">{title}</h1>}
+                            {subtitle && <p className="text-xs text-[#6B6862] mt-0.5">{subtitle}</p>}
+                        </div>
+                        {action && <div className="flex items-center gap-2">{action}</div>}
+                    </header>
+                )}
+
+                {/* Main Content Body */}
+                <main className="p-6 flex-1 min-w-0">
+                    {children}
                 </main>
             </div>
         </div>

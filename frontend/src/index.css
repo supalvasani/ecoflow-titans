@@ -1,66 +1,110 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --paper: #F7F6F3;
+    --ink: #1C1B19;
+    --ink-muted: #6B6862;
+    --line: #DEDBD4;
+    --surface: #FFFFFF;
+    --accent: #2F4B3C;
+    --accent-hover: #263D31;
+    --danger: #8C3B2E;
+    --danger-soft: #F9EBE8;
+    --warning: #A67C2E;
+    --warning-soft: #FBF5E8;
+
+    /* Semantic Mappings for UI Component base */
+    --background: var(--paper);
+    --foreground: var(--ink);
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--accent);
+    --primary-foreground: #FFFFFF;
+    --secondary: #EBE8E1;
+    --secondary-foreground: var(--ink);
+    --muted: #EBE8E1;
+    --muted-foreground: var(--ink-muted);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent);
+    --radius: 4px;
+  }
+
   * {
-    border-color: #D6E2F0;
+    border-color: var(--line);
+    box-sizing: border-box;
   }
 
   body {
-    background-color: #F5F8FC;
-    color: #0F172A;
-    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
   }
 
-  /* Remove default margins and paddings */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6,
-  p {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 500;
+    color: var(--ink);
     margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  /* Functional Monospace */
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'IBM Plex Mono', Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Clean interactive outlines */
+  button, input, select, textarea {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 }
 
 @layer utilities {
+  .bg-paper { background-color: var(--paper); }
+  .bg-surface { background-color: var(--surface); }
+  .text-ink { color: var(--ink); }
+  .text-ink-muted { color: var(--ink-muted); }
+  .border-line { border-color: var(--line); }
+  .bg-accent-custom { background-color: var(--accent); }
+  .text-accent-custom { color: var(--accent); }
+  .bg-danger-custom { background-color: var(--danger); }
+  .text-danger-custom { color: var(--danger); }
+  .bg-warning-custom { background-color: var(--warning); }
+  .text-warning-custom { color: var(--warning); }
 
-  /* Typography Utilities */
-  .text-page-title {
-    font-size: 1.5rem;
-    font-weight: 600;
+  /* Enterprise Table Utilities */
+  .table-console {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
   }
-
-  .text-section-header {
-    font-size: 1.125rem;
+  .table-console th {
+    text-align: left;
     font-weight: 500;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--line);
+    padding: 0.5rem 0.75rem;
+    background-color: var(--paper);
   }
-
-  .text-body {
-    font-size: 0.875rem;
-  }
-
-  .text-meta {
-    font-size: 0.75rem;
-    color: #4B5563;
-  }
-
-  /* Spacing Utilities */
-  .section-spacing {
-    &>*+* {
-      margin-top: 2rem;
-    }
-  }
-
-  .card-spacing {
-    padding: 1.5rem;
-  }
-
-  .field-spacing {
-    &>*+* {
-      margin-top: 1rem;
-    }
+  .table-console td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
   }
 }

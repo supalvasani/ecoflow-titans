@@ -22,32 +22,32 @@ class ReportService {
                 const error = await response.json();
                 throw new Error(error.error || `API request failed with status ${response.status}`);
             } catch (e) {
-                throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+                throw new Error(`API request failed with status ${response.status}: ${(response as any).statusText}`);
             }
         }
 
         return response.json();
     }
 
-    async getECOHistory(token: string): Promise<{ history: any[] }> {
-        return this.request('/api/reports/eco-history', token);
+    async getCCRHistory(token: string): Promise<{ history: any[] }> {
+        return this.request('/api/reports/ccr-history', token);
     }
 
-    async getProductVersions(token: string, productId?: string): Promise<{ versions: any[] }> {
-        const query = productId ? `?productId=${productId}` : '';
-        return this.request(`/api/reports/product-versions${query}`, token);
+    async getCatalogItemVersions(token: string, catalogItemId?: string): Promise<{ versions: any[] }> {
+        const query = catalogItemId ? `?catalogItemId=${catalogItemId}` : '';
+        return this.request(`/api/reports/catalog-item-versions${query}`, token);
     }
 
-    async getBOMHistory(token: string, bomId?: string): Promise<{ history: any[] }> {
-        const query = bomId ? `?bomId=${bomId}` : '';
-        return this.request(`/api/reports/bom-history${query}`, token);
+    async getVariantSetHistory(token: string, variantSetId?: string): Promise<{ history: any[] }> {
+        const query = variantSetId ? `?variantSetId=${variantSetId}` : '';
+        return this.request(`/api/reports/variant-set-history${query}`, token);
     }
 
-    async getArchivedProducts(token: string): Promise<{ archived: any[] }> {
-        return this.request('/api/reports/archived-products', token);
+    async getArchivedCatalogItems(token: string): Promise<{ archived: any[] }> {
+        return this.request('/api/reports/archived-catalog-items', token);
     }
 
-    async getActiveMatrix(token: string): Promise<{ products: any[]; boms: any[]; timestamp: string }> {
+    async getActiveMatrix(token: string): Promise<{ catalogItems: any[]; variantSets: any[]; timestamp: string }> {
         return this.request('/api/reports/active-matrix', token);
     }
 }

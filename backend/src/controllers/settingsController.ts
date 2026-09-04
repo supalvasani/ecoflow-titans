@@ -6,7 +6,7 @@ import { AuthRequest } from '../middlewares/authMiddleware.js';
  * @swagger
  * /api/settings/stages:
  *   get:
- *     summary: Retrieve ECO workflow stages
+ *     summary: Retrieve CCR workflow stages
  *     tags: [Settings]
  *     security:
  *       - bearerAuth: []
@@ -28,7 +28,7 @@ export const getStages = async (req: AuthRequest, res: Response) => {
  * @swagger
  * /api/settings/stages:
  *   post:
- *     summary: Update ECO workflow stages (admin only)
+ *     summary: Update CCR workflow stages (admin only)
  *     tags: [Settings]
  *     security:
  *       - bearerAuth: []

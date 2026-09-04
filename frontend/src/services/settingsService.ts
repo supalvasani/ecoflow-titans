@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export interface ECOStage {
+export interface CCRStage {
     id: string;
     name: string;
     sequence: number;
@@ -66,16 +66,16 @@ class SettingsService {
     }
 
     /**
-     * Get all ECO workflow stages
+     * Get all CCR workflow stages
      */
-    async getStages(token: string): Promise<{ stages: ECOStage[] }> {
+    async getStages(token: string): Promise<{ stages: CCRStage[] }> {
         return this.request('/api/settings/stages', token);
     }
 
     /**
-     * Update ECO workflow stages (admin only)
+     * Update CCR workflow stages (admin only)
      */
-    async updateStages(token: string, stages: Partial<ECOStage>[]): Promise<{ message: string; stages: ECOStage[] }> {
+    async updateStages(token: string, stages: Partial<CCRStage>[]): Promise<{ message: string; stages: CCRStage[] }> {
         return this.request('/api/settings/stages', token, {
             method: 'POST',
             body: JSON.stringify({ stages }),

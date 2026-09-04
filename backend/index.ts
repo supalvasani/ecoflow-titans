@@ -46,12 +46,6 @@ app.use('/api/variant-sets', variantSetRoutes);
 app.use('/api/ccrs', ccrRoutes);
 app.use('/api/publish-tasks', publishTaskRoutes);
 
-// Compatibility aliases
-app.use('/api/products', catalogItemRoutes);
-app.use('/api/boms', variantSetRoutes);
-app.use('/api/ecos', ccrRoutes);
-app.use('/api/operations', publishTaskRoutes);
-
 // Shared Administration / Reporting
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
