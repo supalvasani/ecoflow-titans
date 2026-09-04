@@ -46,7 +46,7 @@ export const StorefrontDashboard = () => {
         <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight mb-2">Storefront & Channel Operations</h2>
+                    <h2 className="text-3xl font-bold tracking-tight mb-2">Storefront & Channel Publishing</h2>
                     <p className="text-muted-foreground">
                         Manage pending publish and rollout tasks for approved Catalog Change Requests
                     </p>

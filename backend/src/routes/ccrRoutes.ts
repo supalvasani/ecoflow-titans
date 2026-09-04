@@ -26,7 +26,6 @@ const router = Router();
 router.post('/create', authenticate, requireMerchandiserOrAdmin(), createCCR);
 router.post('/', authenticate, requireMerchandiserOrAdmin(), createCCR);
 router.post('/catalog-item', authenticate, requireMerchandiserOrAdmin(), createCCR);
-router.post('/product', authenticate, requireMerchandiserOrAdmin(), createCCR);
 router.get('/statistics', authenticate, getCCRStatistics);
 router.get('/', authenticate, getCCRs);
 router.get('/:id', authenticate, getCCRById);

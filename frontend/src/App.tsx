@@ -71,7 +71,7 @@ function App() {
 
           {/* Catalog Items Routes */}
           <Route
-            path="/products"
+            path="/catalog-items"
             element={
               <ProtectedRoute>
                 <CatalogItemListPage />
@@ -79,7 +79,7 @@ function App() {
             }
           />
           <Route
-            path="/products/create"
+            path="/catalog-items/create"
             element={
               <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
                 <CatalogItemCreatePage />
@@ -87,7 +87,7 @@ function App() {
             }
           />
           <Route
-            path="/products/new"
+            path="/catalog-items/new"
             element={
               <ProtectedRoute allowedRoles={[Role.MERCHANDISER, Role.ADMIN]}>
                 <CatalogItemCreatePage />
@@ -95,7 +95,7 @@ function App() {
             }
           />
           <Route
-            path="/products/:id"
+            path="/catalog-items/:id"
             element={
               <ProtectedRoute>
                 <CatalogItemDetailPage />

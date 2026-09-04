@@ -11,7 +11,7 @@ export const roleEnum = pgEnum('Role', ['MERCHANDISER', 'CATEGORY_APPROVER', 'ST
 
 export const itemStatusEnum = pgEnum('ItemStatus', ['ACTIVE', 'ARCHIVED']);
 
-// CCR = Catalog Change Request (was ECO)
+// CCR = Catalog Change Request
 export const ccrTypeEnum = pgEnum('CCRType', ['CATALOG_ITEM', 'VARIANT_SET', 'VARIANT_SET_CHANGE', 'ROLLBACK']);
 export type CCRType = 'CATALOG_ITEM' | 'VARIANT_SET' | 'VARIANT_SET_CHANGE' | 'ROLLBACK';
 export const CCRType = {
@@ -40,7 +40,7 @@ export const users = pgTable('User', {
 });
 
 // ============================================================
-// CATALOG ITEM (was Product)
+// CATALOG ITEM
 // ============================================================
 export const catalogItems = pgTable('CatalogItem', {
   id: text('id').primaryKey(),
@@ -51,7 +51,7 @@ export const catalogItems = pgTable('CatalogItem', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Catalog Item Version (was ProductVersion) — immutable revision
+// Catalog Item Version — immutable revision
 export const catalogItemVersions = pgTable('CatalogItemVersion', {
   id: text('id').primaryKey(),
   catalogItemId: text('catalogItemId').notNull().references(() => catalogItems.id),
@@ -69,7 +69,7 @@ export const catalogItemVersions = pgTable('CatalogItemVersion', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Catalog Item Content (was ProductAttachment) — locale-aware, approval-gated
+// Catalog Item Content — locale-aware, approval-gated
 export const catalogItemContent = pgTable('CatalogItemContent', {
   id: text('id').primaryKey(),
   catalogItemVersionId: text('catalogItemVersionId').notNull().references(() => catalogItemVersions.id),
@@ -84,7 +84,7 @@ export const catalogItemContent = pgTable('CatalogItemContent', {
 });
 
 // ============================================================
-// VARIANT SET (was BOM) — the "structure" of a catalog item (its variants + publish rules)
+// VARIANT SET — the structure of a catalog item (its variants + publish rules)
 // ============================================================
 export const variantSets = pgTable('VariantSet', {
   id: text('id').primaryKey(),
@@ -102,8 +102,8 @@ export const variantSetVersions = pgTable('VariantSetVersion', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Variant (was BOMComponent) — a specific color/size/etc SKU under this variant set.
-// Reuses catalogItemVersions recursively, exactly like BOMComponent reused productVersions.
+// Variant — a specific color/size/etc SKU under this variant set.
+// Reuses catalogItemVersions recursively.
 export const variants = pgTable('Variant', {
   id: text('id').primaryKey(),
   variantSetVersionId: text('variantSetVersionId').notNull().references(() => variantSetVersions.id),
@@ -113,7 +113,7 @@ export const variants = pgTable('Variant', {
   stockQty: integer('stockQty').notNull(),
 });
 
-// Channel Publish Rule (was BOMOperation) — enables staggered multi-channel/region rollout.
+// Channel Publish Rule — enables staggered multi-channel/region rollout.
 // Each row is independently live/not-live per channel+region, unlike one global ACTIVE flag.
 export const channelPublishRules = pgTable('ChannelPublishRule', {
   id: text('id').primaryKey(),
@@ -142,7 +142,7 @@ export const promotions = pgTable('Promotion', {
 });
 
 // ============================================================
-// WORKFLOW STAGES (was ECOStage)
+// WORKFLOW STAGES
 // ============================================================
 export const ccrStages = pgTable('CCRStage', {
   id: text('id').primaryKey(),
@@ -155,7 +155,7 @@ export const ccrStages = pgTable('CCRStage', {
 });
 
 // ============================================================
-// CATALOG CHANGE REQUEST (was ECO) — the staging/sandbox object
+// CATALOG CHANGE REQUEST — the staging/sandbox object
 // ============================================================
 export const catalogChangeRequests = pgTable('CatalogChangeRequest', {
   id: text('id').primaryKey(),
@@ -170,19 +170,19 @@ export const catalogChangeRequests = pgTable('CatalogChangeRequest', {
   catalogItemVersionId: text('catalogItemVersionId').references(() => catalogItemVersions.id),
   variantSetVersionId: text('variantSetVersionId').references(() => variantSetVersions.id),
 
-  // Draft Data (was: draftProductId, draftName, draftSalePrice, draftCostPrice)
+  // Draft catalog-item fields
   draftCatalogItemId: text('draftCatalogItemId').references(() => catalogItems.id),
   draftName: text('draftName'),
   draftSalePrice: numeric('draftSalePrice', { precision: 10, scale: 2 }),
   draftCostPrice: numeric('draftCostPrice', { precision: 10, scale: 2 }),
   draftCurrency: text('draftCurrency'),
 
-  // BOM-equivalent draft (was: draftBomId, draftNotes, draftComponents, draftOperations, draftAttachments)
+  // Draft variant-set fields
   draftVariantSetId: text('draftVariantSetId').references(() => variantSets.id),
   draftNotes: text('draftNotes'),
-  draftVariants: jsonb('draftVariants'),       // was draftComponents
-  draftChannelRules: jsonb('draftChannelRules'), // was draftOperations
-  draftContent: jsonb('draftContent'),           // was draftAttachments
+  draftVariants: jsonb('draftVariants'),
+  draftChannelRules: jsonb('draftChannelRules'),
+  draftContent: jsonb('draftContent'),
 
   // Rollback CCR: if type = ROLLBACK, references the ARCHIVED version to restore.
   // On apply: current ACTIVE version archived, target version cloned forward as new current.
@@ -208,7 +208,7 @@ export const ccrApprovals = pgTable('CCRApproval', {
 });
 
 // ============================================================
-// AUDIT LOG (unchanged shape, FK renamed ecoId -> ccrId)
+// AUDIT LOG
 // ============================================================
 export const auditLogs = pgTable('AuditLog', {
   id: text('id').primaryKey(),
@@ -223,7 +223,7 @@ export const auditLogs = pgTable('AuditLog', {
 });
 
 // ============================================================
-// PUBLISH TASK (was OperationsTask)
+// PUBLISH TASK
 // ============================================================
 export const publishTasks = pgTable('PublishTask', {
   id: text('id').primaryKey(),

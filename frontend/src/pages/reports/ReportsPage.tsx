@@ -113,7 +113,7 @@ export default function ReportsPage() {
             headers = ['Item Name', 'SKU', 'Live Version', 'Sale Price', 'Cost Price', 'Active Variant Sets'];
             rows = activeMatrix.items.map(p => {
                 const currentV = p.versions?.find((v: any) => v.isCurrent) || p.versions?.[0];
-                const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === p.id || b.productId === p.id);
+                const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === p.id);
                 return [
                     p.name,
                     p.sku,
@@ -396,7 +396,7 @@ export default function ReportsPage() {
                                                 <td className="py-2.5 px-4 font-mono text-ink-muted">{item.sku}</td>
                                                 <td className="py-2.5 px-4 font-mono text-ink">{item.versions?.length || 0}</td>
                                                 <td className="py-2.5 px-4 text-right">
-                                                    <Link to={`/products/${item.id}`} className="text-xs font-sans text-accent hover:underline">
+                                                    <Link to={`/catalog-items/${item.id}`} className="text-xs font-sans text-accent hover:underline">
                                                         Inspect Lineage
                                                     </Link>
                                                 </td>
@@ -421,7 +421,7 @@ export default function ReportsPage() {
                                     <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
                                         {activeMatrix.items.map((item) => {
                                             const currentV = item.versions?.find((v: any) => v.isCurrent) || item.versions?.[0];
-                                            const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === item.id || b.productId === item.id);
+                                            const matchingSets = activeMatrix.variantSets.filter((b: any) => b.catalogItemId === item.id);
 
                                             return (
                                                 <tr key={item.id} className="hover:bg-stone-50/50">

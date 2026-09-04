@@ -5,7 +5,6 @@ import crypto from 'node:crypto';
 export class CatalogItemService {
     /**
      * Create a new CatalogItem with initial version (v1).
-     * Was: createProduct()
      */
     async createCatalogItem(
         name: string,
@@ -158,7 +157,7 @@ export class CatalogItemService {
     }
 
     /**
-     * Get content (was: attachments) for a specific CatalogItemVersion.
+     * Get content for a specific CatalogItemVersion.
      */
     async getContent(catalogItemVersionId: string) {
         return db.query.catalogItemContent.findMany({

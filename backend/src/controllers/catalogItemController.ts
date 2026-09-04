@@ -46,7 +46,7 @@ export const getCatalogItemById = async (req: AuthRequest, res: Response) => {
         const catalogItem = await catalogItemService.getCatalogItemById(id as string, userRole);
         res.json({ catalogItem });
     } catch (error: any) {
-        if (error.message === 'CatalogItem not found' || error.message === 'Product not found') {
+        if (error.message === 'CatalogItem not found') {
             return res.status(404).json({ error: error.message });
         }
         console.error('Get catalog item error:', error);

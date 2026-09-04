@@ -68,7 +68,7 @@ export default function CatalogItemListPage() {
             action={
                 canCreate ? (
                     <button
-                        onClick={() => navigate('/products/new')}
+                        onClick={() => navigate('/catalog-items/new')}
                         className="px-3 py-1.5 bg-[#2F4B3C] text-white text-xs font-medium rounded hover:bg-[#263D31] transition-colors"
                     >
                         Create Catalog Item
@@ -157,7 +157,7 @@ export default function CatalogItemListPage() {
                                     return (
                                         <tr
                                             key={item.id}
-                                            onClick={() => navigate(`/products/${item.id}`)}
+                                            onClick={() => navigate(`/catalog-items/${item.id}`)}
                                             className="hover:bg-[#F7F6F3] cursor-pointer transition-colors"
                                         >
                                             <td className="font-mono text-xs text-[#1C1B19]">

@@ -4,11 +4,10 @@ import { AuthRequest } from '../middlewares/authMiddleware.js';
 
 export const createVariantSet = async (req: AuthRequest, res: Response) => {
     try {
-        const { catalogItemId, productId } = req.body;
-        const targetId = catalogItemId || productId;
+        const { catalogItemId } = req.body;
         const userId = req.user!.userId;
 
-        const variantSet = await variantSetService.createVariantSet(targetId, userId);
+        const variantSet = await variantSetService.createVariantSet(catalogItemId, userId);
         res.status(201).json({
             message: 'VariantSet created successfully',
             variantSet,
@@ -50,11 +49,10 @@ export const getVariantSetById = async (req: AuthRequest, res: Response) => {
 
 export const getVariantSetByCatalogItemId = async (req: AuthRequest, res: Response) => {
     try {
-        const { catalogItemId, productId } = req.params;
-        const targetId = catalogItemId || productId;
+        const { catalogItemId } = req.params;
         const userRole = req.user!.role;
 
-        const variantSet = await variantSetService.getVariantSetByCatalogItemId(targetId as string, userRole);
+        const variantSet = await variantSetService.getVariantSetByCatalogItemId(catalogItemId as string, userRole);
         res.json({ variantSet });
     } catch (error: any) {
         if (error.message && (error.message.includes('not found') || error.message.includes('No VariantSet found'))) {

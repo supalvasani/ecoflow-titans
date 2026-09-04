@@ -3,12 +3,11 @@ import { eq, and } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
 // ============================================================
-// CatalogItemVersion cloners (was: ProductVersion cloners)
+// CatalogItemVersion cloners
 // ============================================================
 
 /**
  * Clone a CatalogItemVersion with draft changes applied inside a transaction.
- * Was: cloneProductVersion()
  */
 export async function cloneCatalogItemVersion(
     tx: any,
@@ -36,7 +35,7 @@ export async function cloneCatalogItemVersion(
         isCurrent: true,
     });
 
-    // 3. Clone existing content items (was: attachments), skipping DELETE-flagged ones
+    // 3. Clone existing content items, skipping DELETE-flagged ones
     const existingContent = await tx.query.catalogItemContent.findMany({
         where: eq(schema.catalogItemContent.catalogItemVersionId, activeVersion.id),
     });
@@ -81,7 +80,6 @@ export async function cloneCatalogItemVersion(
 
 /**
  * Update existing active CatalogItemVersion in-place (hotfix / no version increment).
- * Was: updateCurrentProductVersion()
  */
 export async function updateCurrentCatalogItemVersion(
     tx: any,
@@ -131,14 +129,13 @@ export async function updateCurrentCatalogItemVersion(
 }
 
 // ============================================================
-// VariantSetVersion cloners (was: BOMVersion cloners)
+// VariantSetVersion cloners
 // ============================================================
 
 /**
  * Clone a VariantSetVersion with draft changes applied inside a transaction.
- * Was: cloneBOMVersion()
- * draftVariants   = was draftComponents  (ADD/UPDATE/DELETE by variantVersionId)
- * draftChannelRules = was draftOperations (ADD/UPDATE/DELETE by channel+region key)
+ * draftVariants: ADD/UPDATE/DELETE keyed by variantVersionId
+ * draftChannelRules: ADD/UPDATE/DELETE keyed by channel+region
  */
 export async function cloneVariantSetVersion(
     tx: any,
@@ -165,12 +162,12 @@ export async function cloneVariantSetVersion(
         isCurrent: true,
     });
 
-    // 3. Process Variants (was BOMComponents) — merge existing + draft delta
+    // 3. Process Variants — merge existing + draft delta
     const existingVariants = await tx.query.variants.findMany({
         where: eq(schema.variants.variantSetVersionId, activeVersion.id),
     });
 
-    // Build map: key = variantVersionId (like componentVersionId in old BOM)
+    // Build map: key = variantVersionId
     const variantMap = new Map<string, { attributeName: string; attributeValue: string; stockQty: number }>();
     for (const v of existingVariants) {
         variantMap.set(v.variantVersionId, {
@@ -203,7 +200,7 @@ export async function cloneVariantSetVersion(
         });
     }
 
-    // 4. Process ChannelPublishRules (was BOMOperations) — keyed by channel+region
+    // 4. Process ChannelPublishRules — keyed by channel+region
     const existingRules = await tx.query.channelPublishRules.findMany({
         where: eq(schema.channelPublishRules.variantSetVersionId, activeVersion.id),
     });
@@ -254,7 +251,6 @@ export async function cloneVariantSetVersion(
 
 /**
  * Update existing active VariantSetVersion in-place (hotfix mode).
- * Was: updateCurrentBOMVersion()
  */
 export async function updateCurrentVariantSetVersion(
     tx: any,
@@ -262,7 +258,7 @@ export async function updateCurrentVariantSetVersion(
     draftVariants: any[] = [],
     draftChannelRules: any[] = []
 ) {
-    // 1. Variants (was BOMComponents)
+    // 1. Variants
     for (const dv of draftVariants) {
         if (dv.action === 'DELETE') {
             await tx.delete(schema.variants).where(
@@ -290,7 +286,7 @@ export async function updateCurrentVariantSetVersion(
         }
     }
 
-    // 2. ChannelPublishRules (was BOMOperations) — keyed by channel+region
+    // 2. ChannelPublishRules — keyed by channel+region
     for (const dr of draftChannelRules) {
         if (dr.action === 'DELETE') {
             await tx.delete(schema.channelPublishRules).where(

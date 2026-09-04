@@ -60,7 +60,7 @@ export default function CatalogItemCreatePage() {
             });
 
             const createdId = res.catalogItem?.id;
-            navigate(createdId ? `/products/${createdId}` : '/products');
+            navigate(createdId ? `/catalog-items/${createdId}` : '/catalog-items');
         } catch (err: any) {
             setError(err.message || 'Failed to create catalog item.');
         } finally {
@@ -76,7 +76,7 @@ export default function CatalogItemCreatePage() {
             subtitle="Register a new master SKU definition. Initial revision v1 will be generated automatically."
             action={
                 <Link
-                    to="/products"
+                    to="/catalog-items"
                     className="px-2.5 py-1.5 border border-[#DEDBD4] bg-white text-xs text-[#1C1B19] rounded hover:bg-[#F7F6F3] transition-colors"
                 >
                     Cancel
@@ -207,7 +207,7 @@ export default function CatalogItemCreatePage() {
                         <div className="flex justify-end gap-2 pt-3 border-t border-[#DEDBD4]">
                             <button
                                 type="button"
-                                onClick={() => navigate('/products')}
+                                onClick={() => navigate('/catalog-items')}
                                 className="px-3 py-1.5 border border-[#DEDBD4] text-xs text-[#1C1B19] rounded hover:bg-[#F7F6F3] transition-colors"
                             >
                                 Discard

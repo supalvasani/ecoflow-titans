@@ -1,6 +1,6 @@
-# SynchroShift — Engineering Change Order & PLM System
+# SynchroShift — Catalog Change Request & Merchandising System
 
-An Engineering Change Order (ECO) Management System that enables controlled, versioned, approval-driven changes to **Products** and **Bills of Materials (BOMs)**. No one ever edits master data directly — every change is Proposed → Reviewed → Approved → Applied.
+A Catalog Change Request (CCR) system that enables controlled, versioned, approval-driven changes to **Catalog Items** and **Variant Sets**. No one ever edits live catalog data directly — every change is Proposed → Reviewed → Approved → Applied.
 
 ---
 
@@ -24,53 +24,60 @@ An Engineering Change Order (ECO) Management System that enables controlled, ver
 │   Port: 5173                                        │
 └──────────────────────────┬──────────────────────────┘
                            │ HTTP (JSON REST API)
-┌──────────────────────────▼──────────────────────────┐
+┌─────────────────────────────────────────────────────▼
 │                  Express.js Backend                 │
 │   TypeScript + Drizzle ORM + JWT Auth               │
-│   Port: 3000                                        │
+│   Port: 5000                                        │
 └──────────────────────────┬──────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────┐
+┌─────────────────────────────────────────────────────▼
 │                     PostgreSQL                      │
-│   (Products, BOMs, ECOs, Audit Logs, Users)         │
+│   (CatalogItems, VariantSets, CCRs, Audit Logs)     │
 └─────────────────────────────────────────────────────┘
 ```
 
 ### Key Invariants
-- **No direct edits to active data** — every change goes through an ECO workflow
-- **Atomic version application** — ECO apply runs in a single SQL transaction with `SELECT FOR UPDATE` locking
+- **No direct edits to active data** — every change goes through a CCR workflow
+- **Atomic version application** — CCR apply runs in a single SQL transaction with `SELECT FOR UPDATE` locking
 - **Audit logging** — every state transition is logged with user, timestamp, and before/after data
 - **Complete version history** — archived versions are never deleted, always queryable
 
-### ECO Types
-There are exactly **two** ECO types:
+### CCR Types
 
 | Type | Target | What it changes |
 |------|--------|-----------------|
-| `PRODUCT` | A Product | Sale price, cost price, description, specs |
-| `BOM` | A BOM | Components (add/remove/update quantity), Operations (add/remove/update) |
+| `CATALOG_ITEM` | A Catalog Item | Sale price, cost price, name, content |
+| `VARIANT_SET` | A Variant Set | Variants (add/remove/update stock/attributes), channel publish rules |
+| `VARIANT_SET_CHANGE` | A Variant Set | Structural delta against an existing set |
+| `ROLLBACK` | A Catalog Item version | Restore an archived version as the new current |
 
-The **Version Update** toggle is an attribute of every ECO — when enabled, a new version is created on apply; when disabled, the current version is overwritten in place.
+The **Version Update** toggle is an attribute of every CCR — when enabled, a new version is created on apply; when disabled, the current version is overwritten in place.
 
 ---
 
 ## Roles & Permissions
 
-| Role | Create ECO | Edit Draft | Submit | Approve | Reject | Apply | Admin Settings | View Reports | View Operations |
+| Role | Create CCR | Edit Draft | Submit | Approve | Reject | Apply | Admin Settings | View Reports | Storefront view |
 |------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | `ADMIN` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `ENGINEERING_USER` | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| `APPROVER` | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| `OPERATIONS_USER` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `MERCHANDISER` | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| `CATEGORY_APPROVER` | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `STOREFRONT_VIEWER` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+Apply is gated to `MERCHANDISER` and `ADMIN` (`requireMerchandiserOrAdmin`). Approve/reject is gated to `CATEGORY_APPROVER` and `ADMIN`. Storefront viewers only see `ACTIVE` + `isCurrent` catalog data (and live channel rules).
 
 ### Default Seeded Users
 
-| Email | Password | Role |
-|-------|----------|------|
-| `admin@synchroshift.com` | `admin123` | ADMIN |
-| `engineer1@synchroshift.com` | `admin123` | ENGINEERING_USER |
-| `approver@synchroshift.com` | `admin123` | APPROVER |
-| `ops@synchroshift.com` | `admin123` | OPERATIONS_USER |
+All passwords: `admin123`
+
+| Email | Role |
+|-------|------|
+| `admin@synchroshift.com` | ADMIN |
+| `merch1@synchroshift.com` | MERCHANDISER |
+| `merch2@synchroshift.com` | MERCHANDISER |
+| `approver@synchroshift.com` | CATEGORY_APPROVER |
+| `approver2@synchroshift.com` | CATEGORY_APPROVER (2nd approver for N-of-M) |
+| `storefront@synchroshift.com` | STOREFRONT_VIEWER |
 
 ---
 
@@ -89,7 +96,7 @@ cd hackoddo2
 # Install backend dependencies
 cd backend && npm install
 
-# Install frontend dependencies  
+# Install frontend dependencies
 cd ../frontend && npm install
 ```
 
@@ -97,10 +104,10 @@ cd ../frontend && npm install
 
 ```bash
 # backend/.env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/ecoflow
+DATABASE_URL=postgresql://postgres:password@localhost:5432/synchroshift
 JWT_SECRET=your-super-secret-jwt-key-at-least-32-chars
 FRONTEND_URL=http://localhost:5173
-PORT=3000
+PORT=5000
 ```
 
 ### 3. Set Up Database
@@ -111,7 +118,7 @@ cd backend
 # Push schema to database
 npm run db:push
 
-# Seed with demo data (including scenario products)
+# Seed with demo data
 npm run seed
 ```
 
@@ -126,8 +133,10 @@ cd frontend && npm run dev
 ```
 
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3000
-- **Swagger UI**: http://localhost:3000/api-docs
+- **Backend API**: http://localhost:5000
+- **Swagger UI**: http://localhost:5000/api-docs
+
+Frontend catalog UI lives at `/catalog-items` (list, `/new`, `/create`, `/:id`).
 
 ---
 
@@ -140,105 +149,90 @@ cd frontend && npm run dev
 | POST | `/api/auth/logout` | Any | Logout |
 | GET | `/api/auth/me` | Any | Current user |
 
-### Products
+### Catalog Items
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `/api/products` | Eng/Approver/Admin | List all products |
-| POST | `/api/products` | Eng/Admin | Create product (creates v1 automatically) |
-| GET | `/api/products/:id` | Eng/Approver/Admin | Product with all versions |
-| GET | `/api/products/:id/active` | **All** | Current active version only |
-| GET | `/api/products/:id/versions` | Eng/Approver/Admin | All versions |
+| GET | `/api/catalog-items` | Authenticated | List catalog items (storefront: active/current only) |
+| POST | `/api/catalog-items` | Merch/Admin | Create catalog item (creates v1 automatically) |
+| GET | `/api/catalog-items/:id` | Authenticated | Catalog item with versions |
+| GET | `/api/catalog-items/:id/active` | Authenticated | Current active version only |
+| GET | `/api/catalog-items/:id/versions` | Merch/Admin | All versions |
+| GET | `/api/catalog-items/:id/versions/:versionId/content` | Authenticated | Locale content for a version |
 
-### BOMs
+### Variant Sets
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `/api/boms` | Eng/Approver/Admin | List all BOMs |
-| POST | `/api/boms` | Eng/Admin | Create BOM for a product |
-| GET | `/api/boms/:id` | Eng/Approver/Admin | BOM with all versions |
-| GET | `/api/boms/:id/active` | **All** | Current active BOM version with components & operations |
-| GET | `/api/boms/:id/versions/:versionId/components` | Eng/Approver/Admin | Components for a specific version |
-| GET | `/api/boms/:id/versions/:versionId/operations` | Eng/Approver/Admin | Operations for a specific version |
+| GET | `/api/variant-sets` | Authenticated | List variant sets |
+| POST | `/api/variant-sets` | Merch/Admin | Create variant set for a catalog item |
+| GET | `/api/variant-sets/:id` | Authenticated | Variant set with versions |
+| GET | `/api/variant-sets/:id/active` | Authenticated | Current active version with variants & channel rules |
+| GET | `/api/variant-sets/item/:catalogItemId` | Authenticated | Variant set for a catalog item |
+| PATCH | `/api/variant-sets/channel-rules/:ruleId/toggle` | Merch/Admin | Toggle a channel publish rule |
 
-### ECOs
+### CCRs
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `/api/ecos` | Eng/Approver/Admin | List ECOs (filterable by type/status) |
-| POST | `/api/ecos` | Eng/Approver/Admin | Create ECO (PRODUCT or BOM) |
-| GET | `/api/ecos/:id` | Eng/Approver/Admin | ECO detail with diff view data |
-| PATCH | `/api/ecos/:id/draft` | Eng/Admin | Update ECO draft (unified for both types) |
-| POST | `/api/ecos/:id/draft/attachments` | Eng/Admin | Upload attachment to draft |
-| POST | `/api/ecos/:id/submit` | Eng/Approver/Admin | Submit for review |
-| POST | `/api/ecos/:id/validate` | Eng/Approver/Admin | Validate ECO readiness |
-| POST | `/api/ecos/:id/approve` | Approver/Admin | Approve ECO |
-| POST | `/api/ecos/:id/reject` | Approver/Admin | Reject ECO back to draft |
-| POST | `/api/ecos/:id/apply` | Admin | Apply approved ECO to master data |
+| GET | `/api/ccrs` | Merch/Approver/Admin | List CCRs |
+| POST | `/api/ccrs` | Merch/Admin | Create CCR |
+| GET | `/api/ccrs/:id` | Merch/Approver/Admin | CCR detail with diff data |
+| PATCH | `/api/ccrs/:id/draft` | Merch/Admin | Update CCR draft |
+| POST | `/api/ccrs/:id/draft/content` | Merch/Admin | Add draft content |
+| POST | `/api/ccrs/:id/submit` | Merch/Admin | Submit for review |
+| POST | `/api/ccrs/:id/validate` | Merch/Admin | Validate CCR readiness |
+| POST | `/api/ccrs/:id/approve` | Approver/Admin | Approve CCR |
+| POST | `/api/ccrs/:id/reject` | Approver/Admin | Reject CCR back to draft |
+| POST | `/api/ccrs/:id/apply` | Merch/Admin | Apply approved CCR to live data |
 
 ### Reports
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `/api/reports/eco-history` | Eng/Approver/Admin | All ECO change records |
-| GET | `/api/reports/product-versions` | Eng/Approver/Admin | Product version history |
-| GET | `/api/reports/bom-history` | Eng/Approver/Admin | BOM change history |
-| GET | `/api/reports/archived-products` | Eng/Approver/Admin | Archived/decommissioned versions |
-| GET | `/api/reports/active-matrix` | Eng/Approver/Admin | Live active catalog matrix |
+| GET | `/api/reports/ccr-history` | Merch/Approver/Admin | All CCR change records |
+| GET | `/api/reports/catalog-item-versions` | Merch/Approver/Admin | Catalog item version history |
+| GET | `/api/reports/variant-set-history` | Merch/Approver/Admin | Variant set change history |
+| GET | `/api/reports/archived-catalog-items` | Merch/Approver/Admin | Archived versions |
+| GET | `/api/reports/active-matrix` | Merch/Approver/Admin | Live active catalog matrix |
 
 ---
 
 ## Demo Scenarios
 
-Both scenarios are pre-seeded in the database after running `npm run seed`.
+Both scenarios are pre-seeded after `npm run seed`.
 
-### Scenario 1 — Wooden Table BOM Quantity Adjustment
+### Scenario 1 — Velo Runner Pro variant / channel rollout
 
-**Objective**: Change Screws quantity from 12 → 16, add "Quality Inspection" operation.
+**Objective**: Footwear SKU with Color+Size variants; WEB/US live, MARKETPLACE/US scheduled, EU blocked on unapproved `fr-FR` content.
 
 **Step-by-step in the UI:**
 
-1. Log in as **engineer@ecoflow.com** (`eng123`)
-2. Navigate to **BOMs** → find **Wooden Table**
-3. Click **Create ECO** → Type: **BOM** → select Wooden Table BOM
-4. In the draft editor:
-   - Update Screws quantity from `12` to `16`
-   - Add new operation: `Quality Inspection`, 10 minutes, Work Center: `QC Dept`
-5. Click **Submit for Review**
-6. Log out → Log in as **approver@ecoflow.com** (`approver123`)
-7. Navigate to **ECOs** → open the Wooden Table ECO → click **Approve**
-8. Log out → Log in as **admin@ecoflow.com** (`admin123`)
-9. Navigate to **ECOs** → open the Wooden Table ECO → click **Apply**
-10. Log out → Log in as **ops@ecoflow.com** (`ops123`)
-11. Navigate to **Operations** → confirm the BOM now shows screws qty = 16 and Quality Inspection operation
+1. Log in as **merch1@synchroshift.com** (`admin123`)
+2. Navigate to **Catalog Items** → find **Velo Runner Pro**
+3. Open **Variant Sets** and inspect Color/Size variants and channel rules
+4. Create a CCR if you want to change stock or prices, then **Submit for Review**
+5. Log in as **approver@synchroshift.com** (`admin123`) and **Approve** (Review stage is seeded with `minApprovals=2`, so **approver2@synchroshift.com** is needed for N-of-M)
+6. Log in as **storefront@synchroshift.com** (`admin123`) and confirm only live/active catalog is visible
 
 **Automated via test:**
 ```bash
 cd backend && npm test
-# Scenario 1: Full ECO apply lifecycle on Wooden Table BOM quantity adjustment ✅
+# Scenario 1: Full CCR apply lifecycle on VariantSet stockQty adjustment
 ```
 
 ---
 
-### Scenario 2 — iPhone 17 Pricing Update
+### Scenario 2 — Catalog item price update
 
-**Objective**: Update sale price due to premium upgrade ($999 → $1099).
+**Objective**: Update sale/cost on a catalog item via CCR so the storefront sees the new current version.
 
-The iPhone 17 Pro product is pre-seeded with:
-- **Version 1**: `$999 sale / $450 cost` (ARCHIVED — shows pricing history)
-- **Version 2**: `$1099 sale / $480 cost` (ACTIVE — reflects the applied price ECO)
-
-**Step-by-step to run a new price update via ECO:**
-
-1. Log in as **engineer@ecoflow.com** (`eng123`)
-2. Navigate to **Products** → find **iPhone 17 Pro**
-3. Click **Create ECO** → Type: **Product** → select iPhone 17 Pro
-4. In the draft editor: set `salePrice: 1149.00`, `costPrice: 500.00`
-5. Click **Submit for Review**
-6. Log in as **approver** → **Approve**
-7. Log in as **admin** → **Apply**
-8. Log in as **ops** → Navigate to **Operations** → The active product version now shows the updated price
+1. Log in as **merch1@synchroshift.com**
+2. Navigate to **Catalog Items** → open an item → **Create CCR** (`CATALOG_ITEM`)
+3. Set draft sale/cost → **Submit for Review**
+4. Log in as **approver** → **Approve**
+5. Log in as **storefront** → the active version shows the updated price
 
 **Automated via test:**
 ```bash
 cd backend && npm test
-# Scenario 2: Product price/cost update via ECO reflects immediately to Operations user ✅
+# Scenario 2: CatalogItem price/cost update via CCR reflects immediately to Storefront
 ```
 
 ---
@@ -254,16 +248,6 @@ cd backend
 npm test
 ```
 
-Expected output:
-```
-TAP version 13
-# Subtest: ECOFlow End-to-End Acceptance & Critical Bug Fix Suite
-    ok 1 - Scenario 1: Full ECO apply lifecycle on Wooden Table BOM quantity adjustment
-    ok 2 - Scenario 2: Product price/cost update via ECO reflects immediately to Operations user
-    ok 3 - Role Enforcement Matrix: Assert 403 status for unauthorized operations per role
-ok 1 - ECOFlow End-to-End Acceptance & Critical Bug Fix Suite
-```
-
 ### TypeScript Type Checking
 
 ```bash
@@ -273,5 +257,3 @@ cd backend && npx tsc --noEmit
 # Frontend
 cd frontend && npx tsc --noEmit
 ```
-
-Both pass with 0 errors.

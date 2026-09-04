@@ -5,7 +5,6 @@ import crypto from 'node:crypto';
 export class VariantSetService {
     /**
      * Create a new VariantSet for a CatalogItem with initial version (v1).
-     * Was: createBOM()
      */
     async createVariantSet(catalogItemId: string, userId: string) {
         if (!catalogItemId) throw new Error('CatalogItem ID is required');
@@ -61,7 +60,6 @@ export class VariantSetService {
 
     /**
      * Get all VariantSets. STOREFRONT_VIEWER sees ACTIVE+live-channel versions only.
-     * Was: getBOMs()
      */
     async getVariantSets(userRole: string, includeArchived: boolean | { channel?: string; region?: string; includeArchived?: boolean } = false, channel?: string, region?: string) {
         const isStorefront = userRole === 'STOREFRONT_VIEWER';
@@ -124,7 +122,6 @@ export class VariantSetService {
 
     /**
      * Get a VariantSet by ID with full deep hierarchy.
-     * Was: getBOMById()
      */
     async getVariantSetById(variantSetId: string, userRole: string, includeVersions: boolean = true) {
         const isStorefront = userRole === 'STOREFRONT_VIEWER';
@@ -163,7 +160,7 @@ export class VariantSetService {
     }
 
     /**
-     * Get a VariantSet by CatalogItem ID (was: getBOMByProductId)
+     * Get a VariantSet by CatalogItem ID
      */
     async getVariantSetByCatalogItemId(catalogItemId: string, userRole: string) {
         const isStorefront = userRole === 'STOREFRONT_VIEWER';
@@ -196,7 +193,6 @@ export class VariantSetService {
     /**
      * Get active VariantSetVersion with fully resolved variants and channel rules.
      * STOREFRONT_VIEWER: channel+region+isLive filters applied.
-     * Was: getActiveBOMVersion()
      */
     async getActiveVariantSetVersion(variantSetId: string, channel?: string, region?: string) {
         const version = await db.query.variantSetVersions.findFirst({
@@ -231,7 +227,6 @@ export class VariantSetService {
 
     /**
      * Get a specific VariantSetVersion by ID.
-     * Was: getBOMVersionById()
      */
     async getVariantSetVersionById(versionId: string, userRole?: string) {
         if (userRole === 'STOREFRONT_VIEWER') {
@@ -269,7 +264,6 @@ export class VariantSetService {
 
     /**
      * Get all versions for a VariantSet (Forbidden for STOREFRONT_VIEWER).
-     * Was: getBOMVersions()
      */
     async getVariantSetVersions(variantSetId: string, userRole?: string) {
         if (userRole === 'STOREFRONT_VIEWER') {

@@ -26,7 +26,6 @@ export const ProtectedRoute = ({ children, allowedRoles, forbiddenRoles, require
         return <Navigate to="/login" replace />;
     }
 
-    // Role aliases resolution
     const currentRole: Role = user.role;
 
     // Check specific required role

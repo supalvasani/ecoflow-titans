@@ -23,7 +23,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
 
 /**
  * Role-based authorization middleware
- * Checks if authenticated user has one of the required roles (supports both new and legacy role names)
+ * Checks if the authenticated user's role is in the required roles list.
  */
 export const requireRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -32,22 +32,7 @@ export const requireRole = (...roles: string[]) => {
     }
 
     const currentRole = req.user.role;
-    // Map of role aliases
-    const roleEquivalents: Record<string, string[]> = {
-      MERCHANDISER: ['MERCHANDISER', 'ENGINEERING_USER'],
-      ENGINEERING_USER: ['MERCHANDISER', 'ENGINEERING_USER'],
-      CATEGORY_APPROVER: ['CATEGORY_APPROVER', 'APPROVER'],
-      APPROVER: ['CATEGORY_APPROVER', 'APPROVER'],
-      STOREFRONT_VIEWER: ['STOREFRONT_VIEWER', 'OPERATIONS_USER'],
-      OPERATIONS_USER: ['STOREFRONT_VIEWER', 'OPERATIONS_USER'],
-      ADMIN: ['ADMIN'],
-    };
-
-    const allowed = roles.some((r) => {
-      if (r === currentRole) return true;
-      const eqRoles = roleEquivalents[r] || [r];
-      return eqRoles.includes(currentRole);
-    });
+    const allowed = roles.includes(currentRole);
 
     if (!allowed) {
       return res.status(403).json({
@@ -61,7 +46,7 @@ export const requireRole = (...roles: string[]) => {
 };
 
 /**
- * Require Merchandiser or Admin (was: requireEngineerOrAdmin)
+ * Require Merchandiser or Admin
  */
 export const requireMerchandiserOrAdmin = () => {
   return requireRole('MERCHANDISER', 'ADMIN');
@@ -69,7 +54,7 @@ export const requireMerchandiserOrAdmin = () => {
 
 
 /**
- * Require Category Approver or Admin (was: requireApprover)
+ * Require Category Approver or Admin
  */
 export const requireApproverOrAdmin = () => {
   return requireRole('CATEGORY_APPROVER', 'ADMIN');

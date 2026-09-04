@@ -103,10 +103,10 @@ export const DashboardLayout = ({ children, title, subtitle, action }: Dashboard
 
                         {/* 2. Catalog */}
                         <NavItem
-                            to="/products"
+                            to="/catalog-items"
                             icon={Package}
                             label="Catalog Items"
-                            active={location.pathname.startsWith('/products') || location.pathname.startsWith('/catalog')}
+                            active={location.pathname.startsWith('/catalog-items')}
                         />
 
                         {/* 3. Variant Sets */}

@@ -80,7 +80,6 @@ export async function validateActiveVersion(versionId: string, type: 'catalogIte
 
 /**
  * Validate that a Variant references an ACTIVE CatalogItemVersion.
- * (Was: validateComponentIsActive — same rule, new naming.)
  */
 export async function validateVariantVersionIsActive(variantVersionId: string) {
     const version = await db.query.catalogItemVersions.findFirst({

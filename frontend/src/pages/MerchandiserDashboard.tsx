@@ -78,7 +78,7 @@ export const MerchandiserDashboard = () => {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate('/products/create')}
+                            onClick={() => navigate('/catalog-items/create')}
                             className="font-sans text-xs h-8"
                         >
                             <Plus className="mr-1.5 h-3.5 w-3.5" />

@@ -44,7 +44,7 @@ export class CCRService {
         const ccrId = crypto.randomUUID();
         const auditId = crypto.randomUUID();
 
-        // Normalize VARIANT_SET_CHANGE → VARIANT_SET (consistent with BOM_CHANGE → BOM)
+        // Normalize VARIANT_SET_CHANGE → VARIANT_SET
         const normalizedType: CCRType = type === 'VARIANT_SET_CHANGE' ? 'VARIANT_SET' : type;
 
         let ccrData: any = {

@@ -95,7 +95,7 @@ export default function CatalogItemDetailPage() {
             action={
                 <div className="flex items-center gap-2">
                     <Link
-                        to="/products"
+                        to="/catalog-items"
                         className="px-2.5 py-1.5 border border-[#DEDBD4] bg-white text-xs text-[#1C1B19] rounded hover:bg-[#F7F6F3] transition-colors"
                     >
                         Back to List

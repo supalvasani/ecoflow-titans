@@ -228,7 +228,7 @@ describe('SynchroShift End-to-End Acceptance Suite', () => {
         assert.equal(parseFloat(storeRes.data.catalogItem.versions[0].costPrice), 28.00);
     });
 
-    it('Role Enforcement Matrix: Assert 403 status for unauthorized operations per role', async () => {
+    it('Role Enforcement Matrix: Assert 403 status for unauthorized actions per role', async () => {
         // Storefront user tries to view Draft CCRs -> 403
         const storeCcr = await request('GET', '/api/ccrs', storefrontToken);
         assert.equal(storeCcr.status, 403);

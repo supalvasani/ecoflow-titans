@@ -12,7 +12,6 @@ export const createCCR = async (req: AuthRequest, res: Response) => {
             effectiveDate,
             versionUpdate,
             catalogItemId,
-            productId,
             variantSetId,
             rollbackTargetVersionId,
             initialChanges,
@@ -20,22 +19,16 @@ export const createCCR = async (req: AuthRequest, res: Response) => {
         const userId = req.user!.userId;
 
         const dateObj = effectiveDate ? new Date(effectiveDate) : undefined;
-        const targetCatalogItemId = catalogItemId || productId;
-        const targetVariantSetId = variantSetId;
-
-        // Map legacy PRODUCT type if sent by old clients
-        let ccrType: CCRType = type as CCRType;
-        if ((type as string) === 'PRODUCT') ccrType = 'CATALOG_ITEM';
 
         const ccr = await ccrService.createCCR({
             title,
-            type: ccrType,
+            type: type as CCRType,
             createdById: userId,
             ...(assigneeId ? { assigneeId } : {}),
             ...(dateObj ? { effectiveDate: dateObj } : {}),
             ...(versionUpdate !== undefined ? { versionUpdate } : {}),
-            ...(targetCatalogItemId ? { catalogItemId: targetCatalogItemId } : {}),
-            ...(targetVariantSetId ? { variantSetId: targetVariantSetId } : {}),
+            ...(catalogItemId ? { catalogItemId } : {}),
+            ...(variantSetId ? { variantSetId } : {}),
             ...(rollbackTargetVersionId ? { rollbackTargetVersionId } : {}),
             initialChanges,
         });
@@ -56,9 +49,7 @@ export const getCCRs = async (req: AuthRequest, res: Response) => {
         const filters: { type?: CCRType; stageId?: string } = {};
 
         if (req.query.type) {
-            let t = req.query.type as string;
-            if (t === 'PRODUCT') t = 'CATALOG_ITEM';
-            filters.type = t as CCRType;
+            filters.type = req.query.type as CCRType;
         }
         if (req.query.stageId) {
             filters.stageId = req.query.stageId as string;

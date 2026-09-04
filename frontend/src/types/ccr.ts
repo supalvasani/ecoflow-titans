@@ -6,8 +6,6 @@ export const CCRType = {
     VARIANT_SET: 'VARIANT_SET' as const,
     VARIANT_SET_CHANGE: 'VARIANT_SET_CHANGE' as const,
     ROLLBACK: 'ROLLBACK' as const,
-    // Legacy alias
-    PRODUCT: 'CATALOG_ITEM' as const,
 };
 
 export interface CCRStage {
@@ -96,8 +94,6 @@ export interface CreateCCRDTO {
     effectiveDate?: string;
     versionUpdate?: boolean;
     initialChanges?: any;
-    // Legacy alias
-    productId?: string;
 }
 
 

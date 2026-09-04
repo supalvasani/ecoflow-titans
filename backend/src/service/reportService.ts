@@ -1,7 +1,7 @@
 import { db, schema } from '../db/index.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 
-/** CCR Change History (was: getECOHistory) */
+/** CCR change history */
 export const getCCRHistory = async (filters?: {
     type?: string;
     stageId?: string;
@@ -28,7 +28,7 @@ export const getCCRHistory = async (filters?: {
     });
 };
 
-/** CatalogItem Version History (was: getProductVersions) */
+/** CatalogItem version history */
 export const getCatalogItemVersionHistory = async (catalogItemId?: string) => {
     const whereClause = catalogItemId
         ? eq(schema.catalogItemVersions.catalogItemId, catalogItemId)
@@ -44,7 +44,7 @@ export const getCatalogItemVersionHistory = async (catalogItemId?: string) => {
     });
 };
 
-/** VariantSet Change History (was: getBOMHistory) */
+/** VariantSet change history */
 export const getVariantSetHistory = async (variantSetId?: string) => {
     const whereClause = variantSetId
         ? eq(schema.variantSetVersions.variantSetId, variantSetId)
@@ -65,7 +65,7 @@ export const getVariantSetHistory = async (variantSetId?: string) => {
     });
 };
 
-/** Active CatalogItem-Version-VariantSet Matrix (was: getActiveMatrix) */
+/** Active CatalogItem–Version–VariantSet matrix */
 export const getActiveMatrix = async () => {
     const catalogItems = await db.query.catalogItems.findMany({
         with: {
@@ -104,7 +104,7 @@ export const getActiveMatrix = async () => {
     return { catalogItems, variantSets, timestamp: new Date() };
 };
 
-/** Archived CatalogItems (was: getArchivedProducts) */
+/** Archived CatalogItems */
 export const getArchivedCatalogItems = async () => {
     return db.query.catalogItemVersions.findMany({
         where: eq(schema.catalogItemVersions.status, 'ARCHIVED'),

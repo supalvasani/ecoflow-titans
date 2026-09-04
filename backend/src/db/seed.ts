@@ -34,7 +34,7 @@ async function main() {
     console.log(' Database cleaned\n');
 
     // ── Users ───────────────────────────────────────────────────────────────
-    console.log(' Creating users (new role names)...');
+    console.log(' Creating users...');
     const pass = await hashPass('admin123');
 
     const adminId = crypto.randomUUID();
@@ -54,7 +54,7 @@ async function main() {
     ]).onConflictDoNothing();
     console.log(' Users created\n');
 
-    // ── CCR Stages (was ECOStages) ───────────────────────────────────────────
+    // ── CCR Stages ───────────────────────────────────────────────────────────
     // NOTE: stage-review seeded with minApprovals=2 to demonstrate N-of-M multi-approver.
     console.log('📋 Creating CCR stages (minApprovals=2 on Review stage to demo N-of-M)...');
     await db.insert(schema.ccrStages).values([
@@ -109,7 +109,7 @@ async function main() {
         version: 1, status: 'ACTIVE', isCurrent: true,
     }).onConflictDoNothing();
 
-    // Variants (was BOMComponents) — Color+Size attribute pairs
+    // Variants — Color+Size attribute pairs
     await db.insert(schema.variants).values([
         { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: redV1Id,  attributeName: 'Color', attributeValue: 'Red',  stockQty: 200 },
         { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: redV1Id,  attributeName: 'Size',  attributeValue: '42',   stockQty: 200 },
