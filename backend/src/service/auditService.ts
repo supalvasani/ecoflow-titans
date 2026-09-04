@@ -53,9 +53,9 @@ export const getAuditLogs = async (filters: {
     };
 };
 
-export const getAuditLogsByECO = async (ecoId: string) => {
+export const getAuditLogsByCCR = async (ccrId: string) => {
     const logs = await db.query.auditLogs.findMany({
-        where: eq(schema.auditLogs.ecoId, ecoId),
+        where: eq(schema.auditLogs.ccrId, ccrId),
         with: {
             user: {
                 columns: {
@@ -69,6 +69,8 @@ export const getAuditLogsByECO = async (ecoId: string) => {
 
     return { logs };
 };
+
+export const getAuditLogsByECO = getAuditLogsByCCR;
 
 export const getAuditLogsByEntity = async (entity: string, entityId: string) => {
     const logs = await db.query.auditLogs.findMany({
@@ -92,6 +94,7 @@ export const getAuditLogsByEntity = async (entity: string, entityId: string) => 
 
 export const auditService = {
     getAuditLogs,
+    getAuditLogsByCCR,
     getAuditLogsByECO,
     getAuditLogsByEntity,
 };

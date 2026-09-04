@@ -6,14 +6,14 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './src/routes/authRoutes.js';
-import productRoutes from './src/routes/productRoutes.js';
-import bomRoutes from './src/routes/bomRoutes.js';
-import ecoRoutes from './src/routes/ecoRoutes.js';
+import catalogItemRoutes from './src/routes/catalogItemRoutes.js';
+import variantSetRoutes from './src/routes/variantSetRoutes.js';
+import ccrRoutes from './src/routes/ccrRoutes.js';
+import publishTaskRoutes from './src/routes/publishTaskRoutes.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
 import auditRoutes from './src/routes/auditRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
-import operationsRoutes from './src/routes/operationsRoutes.js';
 import { swaggerSpec } from './src/config/swagger.js';
 
 const app = express();
@@ -39,16 +39,24 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'SynchroShift API Docs',
 }));
 
-// Routes
+// Routes - SynchroShift Domain
 app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/boms', bomRoutes);
-app.use('/api/ecos', ecoRoutes);
+app.use('/api/catalog-items', catalogItemRoutes);
+app.use('/api/variant-sets', variantSetRoutes);
+app.use('/api/ccrs', ccrRoutes);
+app.use('/api/publish-tasks', publishTaskRoutes);
+
+// Compatibility aliases
+app.use('/api/products', catalogItemRoutes);
+app.use('/api/boms', variantSetRoutes);
+app.use('/api/ecos', ccrRoutes);
+app.use('/api/operations', publishTaskRoutes);
+
+// Shared Administration / Reporting
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/operations', operationsRoutes);
 
 import { db } from './src/db/index.js';
 import { sql } from 'drizzle-orm';

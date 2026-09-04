@@ -5,7 +5,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { FileText, Download, Layers, History, Trash2, Eye, Calendar } from 'lucide-react';
+import { FileText, Download, Layers, History, Trash2, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 type TabType = 'eco' | 'product-versions' | 'bom-history' | 'archived' | 'matrix';
@@ -28,21 +28,32 @@ export default function ReportsPage() {
         setLoading(true);
         setError(null);
         try {
-            if (tab === 'eco') {
-                const res = await reportService.getECOHistory(token);
-                setEcoHistory(res.history || []);
-            } else if (tab === 'product-versions') {
-                const res = await reportService.getProductVersions(token);
-                setProductVersions(res.versions || []);
-            } else if (tab === 'bom-history') {
-                const res = await reportService.getBOMHistory(token);
-                setBomHistory(res.history || []);
-            } else if (tab === 'archived') {
-                const res = await reportService.getArchivedProducts(token);
-                setArchivedProducts(res.archived || []);
-            } else if (tab === 'matrix') {
-                const res = await reportService.getActiveMatrix(token);
-                setActiveMatrix({ products: res.products || [], boms: res.boms || [] });
+            switch (tab) {
+                case 'eco': {
+                    const ecoRes = await reportService.getECOHistory(token);
+                    setEcoHistory(ecoRes.history || []);
+                    break;
+                }
+                case 'product-versions': {
+                    const pvRes = await reportService.getProductVersions(token);
+                    setProductVersions(pvRes.versions || []);
+                    break;
+                }
+                case 'bom-history': {
+                    const bomRes = await reportService.getBOMHistory(token);
+                    setBomHistory(bomRes.history || []);
+                    break;
+                }
+                case 'archived': {
+                    const archRes = await reportService.getArchivedProducts(token);
+                    setArchivedProducts(archRes.archived || []);
+                    break;
+                }
+                case 'matrix': {
+                    const matrixRes = await reportService.getActiveMatrix(token);
+                    setActiveMatrix({ products: matrixRes.products || [], boms: matrixRes.boms || [] });
+                    break;
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Failed to fetch report data');
@@ -59,7 +70,7 @@ export default function ReportsPage() {
     const handleExportCSV = () => {
         let headers: string[] = [];
         let rows: string[][] = [];
-        let filename = `${activeTab}_report.csv`;
+        const filename = `${activeTab}_report.csv`;
 
         if (activeTab === 'eco') {
             headers = ['ECO Title', 'Type', 'Proposer', 'Stage', 'Date Proposed'];

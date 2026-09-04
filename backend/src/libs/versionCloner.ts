@@ -2,322 +2,327 @@ import { db, schema } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
+// ============================================================
+// CatalogItemVersion cloners (was: ProductVersion cloners)
+// ============================================================
+
 /**
- * Clone a product version with draft changes applied inside a transaction block
+ * Clone a CatalogItemVersion with draft changes applied inside a transaction.
+ * Was: cloneProductVersion()
  */
-export async function cloneProductVersion(
+export async function cloneCatalogItemVersion(
     tx: any,
     activeVersion: any,
     draft: any,
-    draftAttachments: any[] = []
+    draftContent: any[] = []
 ) {
     const nextVersion = activeVersion.version + 1;
     const newVersionId = crypto.randomUUID();
 
     // 1. Archive current active version
-    await tx
-        .update(schema.productVersions)
-        .set({
-            status: 'ARCHIVED',
-            isCurrent: false,
-        })
-        .where(eq(schema.productVersions.id, activeVersion.id));
+    await tx.update(schema.catalogItemVersions)
+        .set({ status: 'ARCHIVED', isCurrent: false })
+        .where(eq(schema.catalogItemVersions.id, activeVersion.id));
 
-    // 2. Create new ACTIVE version
-    await tx.insert(schema.productVersions).values({
+    // 2. Create new ACTIVE version with draft delta merged
+    await tx.insert(schema.catalogItemVersions).values({
         id: newVersionId,
-        productId: activeVersion.productId,
+        catalogItemId: activeVersion.catalogItemId,
         version: nextVersion,
-        salePrice: (draft?.salePrice ?? activeVersion.salePrice).toString(),
-        costPrice: (draft?.costPrice ?? activeVersion.costPrice).toString(),
+        salePrice: ((draft?.salePrice) ?? parseFloat(activeVersion.salePrice)).toString(),
+        costPrice: ((draft?.costPrice) ?? parseFloat(activeVersion.costPrice)).toString(),
+        currency: draft?.currency ?? activeVersion.currency ?? 'USD',
         status: 'ACTIVE',
         isCurrent: true,
     });
 
-    // 3. Clone existing attachments
-    const existingAttachments = await tx.query.productAttachments.findMany({
-        where: eq(schema.productAttachments.productVersionId, activeVersion.id),
+    // 3. Clone existing content items (was: attachments), skipping DELETE-flagged ones
+    const existingContent = await tx.query.catalogItemContent.findMany({
+        where: eq(schema.catalogItemContent.catalogItemVersionId, activeVersion.id),
     });
 
-    for (const att of existingAttachments) {
-        const toDelete = draftAttachments.find(
-            (d: any) => d.filename === att.filename && d.action === 'DELETE'
+    for (const item of existingContent) {
+        const toDelete = draftContent.find(
+            (d: any) => d.filename === item.filename && d.action === 'DELETE'
         );
         if (toDelete) continue;
 
-        await tx.insert(schema.productAttachments).values({
+        await tx.insert(schema.catalogItemContent).values({
             id: crypto.randomUUID(),
-            productVersionId: newVersionId,
-            filename: att.filename,
-            url: att.url,
+            catalogItemVersionId: newVersionId,
+            locale: item.locale,
+            contentType: item.contentType,
+            filename: item.filename,
+            url: item.url,
+            approved: item.approved,
         });
     }
 
-    // 4. Add new draft attachments
-    for (const draftAtt of draftAttachments) {
-        if (draftAtt.action === 'ADD') {
-            await tx.insert(schema.productAttachments).values({
+    // 4. Add new draft content items
+    for (const draftItem of draftContent) {
+        if (draftItem.action === 'ADD') {
+            await tx.insert(schema.catalogItemContent).values({
                 id: crypto.randomUUID(),
-                productVersionId: newVersionId,
-                filename: draftAtt.filename,
-                url: draftAtt.url,
+                catalogItemVersionId: newVersionId,
+                locale: draftItem.locale ?? 'en-US',
+                contentType: draftItem.contentType ?? 'IMAGE',
+                filename: draftItem.filename,
+                url: draftItem.url,
+                approved: false, // New content always starts unapproved
             });
         }
     }
 
-    const newVersion = await tx.query.productVersions.findFirst({
-        where: eq(schema.productVersions.id, newVersionId),
-        with: { attachments: true },
+    return tx.query.catalogItemVersions.findFirst({
+        where: eq(schema.catalogItemVersions.id, newVersionId),
+        with: { content: true },
     });
-
-    return newVersion;
 }
 
 /**
- * Update existing active Product Version in-place (hotfix mode)
+ * Update existing active CatalogItemVersion in-place (hotfix / no version increment).
+ * Was: updateCurrentProductVersion()
  */
-export async function updateCurrentProductVersion(
+export async function updateCurrentCatalogItemVersion(
     tx: any,
     activeVersion: any,
     draft: any,
-    draftAttachments: any[] = []
+    draftContent: any[] = []
 ) {
-    await tx
-        .update(schema.productVersions)
+    await tx.update(schema.catalogItemVersions)
         .set({
-            salePrice: (draft?.salePrice ?? activeVersion.salePrice).toString(),
-            costPrice: (draft?.costPrice ?? activeVersion.costPrice).toString(),
+            salePrice: ((draft?.salePrice) ?? parseFloat(activeVersion.salePrice)).toString(),
+            costPrice: ((draft?.costPrice) ?? parseFloat(activeVersion.costPrice)).toString(),
+            currency: draft?.currency ?? activeVersion.currency,
         })
-        .where(eq(schema.productVersions.id, activeVersion.id));
+        .where(eq(schema.catalogItemVersions.id, activeVersion.id));
 
-    // Deletions
-    const attachmentsToDelete = draftAttachments.filter((d: any) => d.action === 'DELETE');
-    for (const att of attachmentsToDelete) {
-        const toDelete = await tx.query.productAttachments.findFirst({
+    // Handle content deletions
+    for (const item of draftContent.filter((d: any) => d.action === 'DELETE')) {
+        const toDelete = await tx.query.catalogItemContent.findFirst({
             where: and(
-                eq(schema.productAttachments.productVersionId, activeVersion.id),
-                eq(schema.productAttachments.filename, att.filename)
+                eq(schema.catalogItemContent.catalogItemVersionId, activeVersion.id),
+                eq(schema.catalogItemContent.filename, item.filename)
             ),
         });
         if (toDelete) {
-            await tx.delete(schema.productAttachments).where(eq(schema.productAttachments.id, toDelete.id));
+            await tx.delete(schema.catalogItemContent)
+                .where(eq(schema.catalogItemContent.id, toDelete.id));
         }
     }
 
-    // Additions
-    const attachmentsToAdd = draftAttachments.filter((d: any) => d.action === 'ADD');
-    for (const att of attachmentsToAdd) {
-        await tx.insert(schema.productAttachments).values({
+    // Handle content additions
+    for (const item of draftContent.filter((d: any) => d.action === 'ADD')) {
+        await tx.insert(schema.catalogItemContent).values({
             id: crypto.randomUUID(),
-            productVersionId: activeVersion.id,
-            filename: att.filename,
-            url: att.url,
+            catalogItemVersionId: activeVersion.id,
+            locale: item.locale ?? 'en-US',
+            contentType: item.contentType ?? 'IMAGE',
+            filename: item.filename,
+            url: item.url,
+            approved: false,
         });
     }
 
-    const updated = await tx.query.productVersions.findFirst({
-        where: eq(schema.productVersions.id, activeVersion.id),
-        with: { attachments: true },
+    return tx.query.catalogItemVersions.findFirst({
+        where: eq(schema.catalogItemVersions.id, activeVersion.id),
+        with: { content: true },
     });
-
-    return updated;
 }
 
+// ============================================================
+// VariantSetVersion cloners (was: BOMVersion cloners)
+// ============================================================
+
 /**
- * Clone a BOM version with draft changes applied inside a transaction block
+ * Clone a VariantSetVersion with draft changes applied inside a transaction.
+ * Was: cloneBOMVersion()
+ * draftVariants   = was draftComponents  (ADD/UPDATE/DELETE by variantVersionId)
+ * draftChannelRules = was draftOperations (ADD/UPDATE/DELETE by channel+region key)
  */
-export async function cloneBOMVersion(
+export async function cloneVariantSetVersion(
     tx: any,
     activeVersion: any,
     draft: any,
-    draftComponents: any[] = [],
-    draftOperations: any[] = []
+    draftVariants: any[] = [],
+    draftChannelRules: any[] = []
 ) {
     const nextVersion = activeVersion.version + 1;
     const newVersionId = crypto.randomUUID();
 
-    // 1. Archive current active BOM version
-    await tx
-        .update(schema.bomVersions)
-        .set({
-            status: 'ARCHIVED',
-            isCurrent: false,
-        })
-        .where(eq(schema.bomVersions.id, activeVersion.id));
+    // 1. Archive current active VariantSetVersion
+    await tx.update(schema.variantSetVersions)
+        .set({ status: 'ARCHIVED', isCurrent: false })
+        .where(eq(schema.variantSetVersions.id, activeVersion.id));
 
-    // 2. Insert new ACTIVE BOM Version
-    await tx.insert(schema.bomVersions).values({
+    // 2. Insert new ACTIVE VariantSetVersion
+    await tx.insert(schema.variantSetVersions).values({
         id: newVersionId,
-        bomId: activeVersion.bomId,
-        productVersionId: activeVersion.productVersionId,
+        variantSetId: activeVersion.variantSetId,
+        catalogItemVersionId: activeVersion.catalogItemVersionId,
         version: nextVersion,
         status: 'ACTIVE',
         isCurrent: true,
     });
 
-    // 3. Process components map
-    const existingComponents = await tx.query.bomComponents.findMany({
-        where: eq(schema.bomComponents.bomVersionId, activeVersion.id),
+    // 3. Process Variants (was BOMComponents) — merge existing + draft delta
+    const existingVariants = await tx.query.variants.findMany({
+        where: eq(schema.variants.variantSetVersionId, activeVersion.id),
     });
 
-    const componentMap = new Map<string, { quantity: number; action: string }>();
-    for (const comp of existingComponents) {
-        componentMap.set(comp.componentVersionId, {
-            quantity: comp.quantity,
-            action: 'KEEP',
+    // Build map: key = variantVersionId (like componentVersionId in old BOM)
+    const variantMap = new Map<string, { attributeName: string; attributeValue: string; stockQty: number }>();
+    for (const v of existingVariants) {
+        variantMap.set(v.variantVersionId, {
+            attributeName: v.attributeName,
+            attributeValue: v.attributeValue,
+            stockQty: v.stockQty,
         });
     }
 
-    for (const draftComp of draftComponents) {
-        if (draftComp.action === 'DELETE') {
-            componentMap.delete(draftComp.componentVersionId);
-        } else if (draftComp.action === 'UPDATE' || draftComp.action === 'ADD') {
-            componentMap.set(draftComp.componentVersionId, {
-                quantity: draftComp.quantity,
-                action: draftComp.action,
+    for (const dv of draftVariants) {
+        if (dv.action === 'DELETE') {
+            variantMap.delete(dv.variantVersionId);
+        } else if (dv.action === 'UPDATE' || dv.action === 'ADD') {
+            variantMap.set(dv.variantVersionId, {
+                attributeName: dv.attributeName,
+                attributeValue: dv.attributeValue,
+                stockQty: dv.stockQty,
             });
         }
     }
 
-    for (const [componentVersionId, { quantity }] of componentMap) {
-        await tx.insert(schema.bomComponents).values({
+    for (const [variantVersionId, v] of variantMap) {
+        await tx.insert(schema.variants).values({
             id: crypto.randomUUID(),
-            bomVersionId: newVersionId,
-            componentVersionId,
-            quantity,
+            variantSetVersionId: newVersionId,
+            variantVersionId,
+            attributeName: v.attributeName,
+            attributeValue: v.attributeValue,
+            stockQty: v.stockQty,
         });
     }
 
-    // 4. Process operations map
-    const existingOperations = await tx.query.bomOperations.findMany({
-        where: eq(schema.bomOperations.bomVersionId, activeVersion.id),
+    // 4. Process ChannelPublishRules (was BOMOperations) — keyed by channel+region
+    const existingRules = await tx.query.channelPublishRules.findMany({
+        where: eq(schema.channelPublishRules.variantSetVersionId, activeVersion.id),
     });
 
-    const operationMap = new Map<string, { name: string; timeMinutes: number; workCenter: string }>();
-    for (const op of existingOperations) {
-        operationMap.set(op.name, {
-            name: op.name,
-            timeMinutes: op.timeMinutes,
-            workCenter: op.workCenter,
+    const ruleMap = new Map<string, { channel: string; region: string; isLive: boolean; goLiveAt: Date | null; publishLeadMinutes: number }>();
+    for (const r of existingRules) {
+        ruleMap.set(`${r.channel}:${r.region}`, {
+            channel: r.channel,
+            region: r.region,
+            isLive: r.isLive,
+            goLiveAt: r.goLiveAt,
+            publishLeadMinutes: r.publishLeadMinutes,
         });
     }
 
-    for (const draftOp of draftOperations) {
-        if (draftOp.action === 'DELETE') {
-            operationMap.delete(draftOp.name);
-        } else if (draftOp.action === 'UPDATE' || draftOp.action === 'ADD') {
-            operationMap.set(draftOp.name, {
-                name: draftOp.name,
-                timeMinutes: draftOp.timeMinutes,
-                workCenter: draftOp.workCenter,
+    for (const dr of draftChannelRules) {
+        const key = `${dr.channel}:${dr.region}`;
+        if (dr.action === 'DELETE') {
+            ruleMap.delete(key);
+        } else if (dr.action === 'UPDATE' || dr.action === 'ADD') {
+            ruleMap.set(key, {
+                channel: dr.channel,
+                region: dr.region,
+                isLive: dr.isLive ?? false,
+                goLiveAt: dr.goLiveAt ? new Date(dr.goLiveAt) : null,
+                publishLeadMinutes: dr.publishLeadMinutes ?? 0,
             });
         }
     }
 
-    for (const op of operationMap.values()) {
-        await tx.insert(schema.bomOperations).values({
+    for (const r of ruleMap.values()) {
+        await tx.insert(schema.channelPublishRules).values({
             id: crypto.randomUUID(),
-            bomVersionId: newVersionId,
-            name: op.name,
-            timeMinutes: op.timeMinutes,
-            workCenter: op.workCenter,
+            variantSetVersionId: newVersionId,
+            channel: r.channel,
+            region: r.region,
+            isLive: r.isLive,
+            goLiveAt: r.goLiveAt,
+            publishLeadMinutes: r.publishLeadMinutes,
         });
     }
 
-    const newVersion = await tx.query.bomVersions.findFirst({
-        where: eq(schema.bomVersions.id, newVersionId),
-        with: {
-            components: true,
-            operations: true,
-        },
+    return tx.query.variantSetVersions.findFirst({
+        where: eq(schema.variantSetVersions.id, newVersionId),
+        with: { variants: true, channelPublishRules: true },
     });
-
-    return newVersion;
 }
 
 /**
- * Update existing active BOM version in-place (hotfix mode)
+ * Update existing active VariantSetVersion in-place (hotfix mode).
+ * Was: updateCurrentBOMVersion()
  */
-export async function updateCurrentBOMVersion(
+export async function updateCurrentVariantSetVersion(
     tx: any,
     activeVersion: any,
-    draft: any,
-    draftComponents: any[] = [],
-    draftOperations: any[] = []
+    draftVariants: any[] = [],
+    draftChannelRules: any[] = []
 ) {
-    // 1. Components
-    for (const draftComp of draftComponents) {
-        if (draftComp.action === 'DELETE') {
-            await tx
-                .delete(schema.bomComponents)
-                .where(
-                    and(
-                        eq(schema.bomComponents.bomVersionId, activeVersion.id),
-                        eq(schema.bomComponents.componentVersionId, draftComp.componentVersionId)
-                    )
-                );
-        } else if (draftComp.action === 'UPDATE') {
-            await tx
-                .update(schema.bomComponents)
-                .set({ quantity: draftComp.quantity })
-                .where(
-                    and(
-                        eq(schema.bomComponents.bomVersionId, activeVersion.id),
-                        eq(schema.bomComponents.componentVersionId, draftComp.componentVersionId)
-                    )
-                );
-        } else if (draftComp.action === 'ADD') {
-            await tx.insert(schema.bomComponents).values({
+    // 1. Variants (was BOMComponents)
+    for (const dv of draftVariants) {
+        if (dv.action === 'DELETE') {
+            await tx.delete(schema.variants).where(
+                and(
+                    eq(schema.variants.variantSetVersionId, activeVersion.id),
+                    eq(schema.variants.variantVersionId, dv.variantVersionId)
+                )
+            );
+        } else if (dv.action === 'UPDATE') {
+            await tx.update(schema.variants)
+                .set({ stockQty: dv.stockQty, attributeName: dv.attributeName, attributeValue: dv.attributeValue })
+                .where(and(
+                    eq(schema.variants.variantSetVersionId, activeVersion.id),
+                    eq(schema.variants.variantVersionId, dv.variantVersionId)
+                ));
+        } else if (dv.action === 'ADD') {
+            await tx.insert(schema.variants).values({
                 id: crypto.randomUUID(),
-                bomVersionId: activeVersion.id,
-                componentVersionId: draftComp.componentVersionId,
-                quantity: draftComp.quantity,
+                variantSetVersionId: activeVersion.id,
+                variantVersionId: dv.variantVersionId,
+                attributeName: dv.attributeName,
+                attributeValue: dv.attributeValue,
+                stockQty: dv.stockQty,
             });
         }
     }
 
-    // 2. Operations
-    for (const draftOp of draftOperations) {
-        if (draftOp.action === 'DELETE') {
-            await tx
-                .delete(schema.bomOperations)
-                .where(
-                    and(
-                        eq(schema.bomOperations.bomVersionId, activeVersion.id),
-                        eq(schema.bomOperations.name, draftOp.name)
-                    )
-                );
-        } else if (draftOp.action === 'UPDATE') {
-            await tx
-                .update(schema.bomOperations)
-                .set({
-                    timeMinutes: draftOp.timeMinutes,
-                    workCenter: draftOp.workCenter,
-                })
-                .where(
-                    and(
-                        eq(schema.bomOperations.bomVersionId, activeVersion.id),
-                        eq(schema.bomOperations.name, draftOp.name)
-                    )
-                );
-        } else if (draftOp.action === 'ADD') {
-            await tx.insert(schema.bomOperations).values({
+    // 2. ChannelPublishRules (was BOMOperations) — keyed by channel+region
+    for (const dr of draftChannelRules) {
+        if (dr.action === 'DELETE') {
+            await tx.delete(schema.channelPublishRules).where(
+                and(
+                    eq(schema.channelPublishRules.variantSetVersionId, activeVersion.id),
+                    eq(schema.channelPublishRules.channel, dr.channel),
+                    eq(schema.channelPublishRules.region, dr.region)
+                )
+            );
+        } else if (dr.action === 'UPDATE') {
+            await tx.update(schema.channelPublishRules)
+                .set({ isLive: dr.isLive, goLiveAt: dr.goLiveAt ? new Date(dr.goLiveAt) : null, publishLeadMinutes: dr.publishLeadMinutes })
+                .where(and(
+                    eq(schema.channelPublishRules.variantSetVersionId, activeVersion.id),
+                    eq(schema.channelPublishRules.channel, dr.channel),
+                    eq(schema.channelPublishRules.region, dr.region)
+                ));
+        } else if (dr.action === 'ADD') {
+            await tx.insert(schema.channelPublishRules).values({
                 id: crypto.randomUUID(),
-                bomVersionId: activeVersion.id,
-                name: draftOp.name,
-                timeMinutes: draftOp.timeMinutes,
-                workCenter: draftOp.workCenter,
+                variantSetVersionId: activeVersion.id,
+                channel: dr.channel,
+                region: dr.region,
+                isLive: dr.isLive ?? false,
+                goLiveAt: dr.goLiveAt ? new Date(dr.goLiveAt) : null,
+                publishLeadMinutes: dr.publishLeadMinutes ?? 0,
             });
         }
     }
 
-    const updated = await tx.query.bomVersions.findFirst({
-        where: eq(schema.bomVersions.id, activeVersion.id),
-        with: {
-            components: true,
-            operations: true,
-        },
+    return tx.query.variantSetVersions.findFirst({
+        where: eq(schema.variantSetVersions.id, activeVersion.id),
+        with: { variants: true, channelPublishRules: true },
     });
-
-    return updated;
 }

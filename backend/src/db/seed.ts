@@ -5,287 +5,307 @@ import crypto from 'node:crypto';
 const hashPass = (password: string) => bcrypt.hash(password, 10);
 
 async function main() {
-    console.log('🌱 Starting Drizzle seed...');
+    console.log(' Starting SynchroShift seed (Catalog & Merchandising domain)...');
 
-    console.log('🧹 Cleaning up database tables...');
+    console.log(' Cleaning up database tables...');
     const tablesToClean = [
         schema.auditLogs,
-        schema.operationsTasks,
-        schema.ecos,
-        schema.ecoStages,
-        schema.bomOperations,
-        schema.bomComponents,
-        schema.bomVersions,
-        schema.boms,
-        schema.productAttachments,
-        schema.productVersions,
-        schema.products,
+        schema.publishTasks,
+        schema.ccrApprovals,
+        schema.catalogChangeRequests,
+        schema.ccrStages,
+        schema.channelPublishRules,
+        schema.variants,
+        schema.variantSetVersions,
+        schema.variantSets,
+        schema.promotions,
+        schema.catalogItemContent,
+        schema.catalogItemVersions,
+        schema.catalogItems,
         schema.users,
     ];
     for (const table of tablesToClean) {
         try {
             await db.delete(table);
         } catch {
-            // Skip individual table if locked or empty
+            // Skip if table is locked or empty
         }
     }
-    console.log('✅ Database cleaned\n');
+    console.log(' Database cleaned\n');
 
-    console.log('👤 Creating users...');
+    // ── Users ───────────────────────────────────────────────────────────────
+    console.log(' Creating users (new role names)...');
     const pass = await hashPass('admin123');
 
     const adminId = crypto.randomUUID();
-    const eng1Id = crypto.randomUUID();
-    const eng2Id = crypto.randomUUID();
+    const merch1Id = crypto.randomUUID();
+    const merch2Id = crypto.randomUUID();
     const approverId = crypto.randomUUID();
-    const opsId = crypto.randomUUID();
+    const approver2Id = crypto.randomUUID();
+    const storefrontId = crypto.randomUUID();
 
     await db.insert(schema.users).values([
-        { id: adminId, email: 'admin@synchroshift.com', password: pass, name: 'Admin User', role: 'ADMIN' },
-        { id: eng1Id, email: 'engineer1@synchroshift.com', password: pass, name: 'Alice Engineer', role: 'ENGINEERING_USER' },
-        { id: eng2Id, email: 'engineer2@synchroshift.com', password: pass, name: 'Bob Engineer', role: 'ENGINEERING_USER' },
-        { id: approverId, email: 'approver@synchroshift.com', password: pass, name: 'Carol Manager', role: 'APPROVER' },
-        { id: opsId, email: 'ops@synchroshift.com', password: pass, name: 'Dave Ops', role: 'OPERATIONS_USER' },
+        { id: adminId,       email: 'admin@synchroshift.com',      password: pass, name: 'Alex Admin',        role: 'ADMIN' },
+        { id: merch1Id,      email: 'merch1@synchroshift.com',     password: pass, name: 'Maya Merchandiser', role: 'MERCHANDISER' },
+        { id: merch2Id,      email: 'merch2@synchroshift.com',     password: pass, name: 'Ben Buyer',         role: 'MERCHANDISER' },
+        { id: approverId,    email: 'approver@synchroshift.com',   password: pass, name: 'Carol Approver',    role: 'CATEGORY_APPROVER' },
+        { id: approver2Id,   email: 'approver2@synchroshift.com',  password: pass, name: 'Dan Approver',      role: 'CATEGORY_APPROVER' },
+        { id: storefrontId,  email: 'storefront@synchroshift.com', password: pass, name: 'Eve Storefront',    role: 'STOREFRONT_VIEWER' },
     ]).onConflictDoNothing();
-    console.log('✅ Users created\n');
+    console.log(' Users created\n');
 
-    console.log('📋 Creating ECO stages...');
-    await db.insert(schema.ecoStages).values([
-        { id: 'stage-draft', name: 'Draft', sequence: 1, requiresApproval: false, isFinal: false },
-        { id: 'stage-review', name: 'Under Review', sequence: 2, requiresApproval: true, isFinal: false },
-        { id: 'stage-approved', name: 'Approved', sequence: 3, requiresApproval: false, isFinal: false },
-        { id: 'stage-implemented', name: 'Implemented', sequence: 4, requiresApproval: false, isFinal: true },
-        { id: 'stage-rejected', name: 'Rejected', sequence: 99, requiresApproval: false, isFinal: true },
+    // ── CCR Stages (was ECOStages) ───────────────────────────────────────────
+    // NOTE: stage-review seeded with minApprovals=2 to demonstrate N-of-M multi-approver.
+    console.log('📋 Creating CCR stages (minApprovals=2 on Review stage to demo N-of-M)...');
+    await db.insert(schema.ccrStages).values([
+        { id: 'stage-draft',     name: 'Draft',       sequence: 1,  requiresApproval: false, isFinal: false, minApprovals: 1 },
+        { id: 'stage-review',    name: 'Under Review', sequence: 2, requiresApproval: true,  isFinal: false, minApprovals: 2 },
+        { id: 'stage-approved',  name: 'Approved',    sequence: 3,  requiresApproval: false, isFinal: false, minApprovals: 1 },
+        { id: 'stage-live',      name: 'Live',        sequence: 4,  requiresApproval: false, isFinal: true,  minApprovals: 1 },
+        { id: 'stage-rejected',  name: 'Rejected',    sequence: 99, requiresApproval: false, isFinal: true,  minApprovals: 1 },
     ]).onConflictDoNothing();
-    console.log('✅ Stages created\n');
+    console.log(' CCR Stages created\n');
 
-    console.log('📦 Creating initial products & versions...');
-    const deltaProId = crypto.randomUUID();
-    const batteryModuleId = crypto.randomUUID();
-    const inverterId = crypto.randomUUID();
-    const screwId = crypto.randomUUID();
+    // ── SCENARIO 1: Footwear SKU — Velo Runner Pro ───────────────────────────
+    // A running shoe with Color + Size variants, published on WEB + MARKETPLACE channels.
+    console.log(' Seeding Scenario 1: Velo Runner Pro (footwear SKU with Color/Size variants)...');
 
-    await db.insert(schema.products).values([
-        { id: deltaProId, name: 'SynchroShift Power Hub' },
-        { id: batteryModuleId, name: 'LFP Battery Module 48V' },
-        { id: inverterId, name: 'Inverter Main Board' },
-        { id: screwId, name: 'M4 Screw Stainless' },
+    const veloId = crypto.randomUUID();
+    const redVariantItemId = crypto.randomUUID();
+    const blueVariantItemId = crypto.randomUUID();
+
+    // Base CatalogItems (the SKU "atoms" that Variant rows reference)
+    await db.insert(schema.catalogItems).values([
+        { id: veloId,          name: 'Velo Runner Pro',            sku: 'VRP-001',      brand: 'Velo',  category: 'Footwear' },
+        { id: redVariantItemId,  name: 'Velo Runner Pro – Red/42',  sku: 'VRP-001-R42',  brand: 'Velo',  category: 'Footwear' },
+        { id: blueVariantItemId, name: 'Velo Runner Pro – Blue/44', sku: 'VRP-001-B44',  brand: 'Velo',  category: 'Footwear' },
     ]).onConflictDoNothing();
 
-    const deltaV1Id = crypto.randomUUID();
-    const deltaV2Id = crypto.randomUUID();
-    const batV1Id = crypto.randomUUID();
-    const invV1Id = crypto.randomUUID();
-    const screwV1Id = crypto.randomUUID();
+    const veloV1Id = crypto.randomUUID();
+    const redV1Id  = crypto.randomUUID();
+    const blueV1Id = crypto.randomUUID();
 
-    await db.insert(schema.productVersions).values([
-        { id: deltaV1Id, productId: deltaProId, version: 1, salePrice: '3599.00', costPrice: '1800.00', status: 'ARCHIVED', isCurrent: false },
-        { id: deltaV2Id, productId: deltaProId, version: 2, salePrice: '3799.00', costPrice: '1750.00', status: 'ACTIVE', isCurrent: true },
-        { id: batV1Id, productId: batteryModuleId, version: 1, salePrice: '300.00', costPrice: '200.00', status: 'ACTIVE', isCurrent: true },
-        { id: invV1Id, productId: inverterId, version: 1, salePrice: '250.00', costPrice: '150.00', status: 'ACTIVE', isCurrent: true },
-        { id: screwV1Id, productId: screwId, version: 1, salePrice: '0.10', costPrice: '0.05', status: 'ACTIVE', isCurrent: true },
+    await db.insert(schema.catalogItemVersions).values([
+        { id: veloV1Id, catalogItemId: veloId,          version: 1, salePrice: '129.99', costPrice: '55.00', currency: 'USD', status: 'ACTIVE', isCurrent: true },
+        { id: redV1Id,  catalogItemId: redVariantItemId,  version: 1, salePrice: '129.99', costPrice: '55.00', currency: 'USD', status: 'ACTIVE', isCurrent: true },
+        { id: blueV1Id, catalogItemId: blueVariantItemId, version: 1, salePrice: '129.99', costPrice: '55.00', currency: 'USD', status: 'ACTIVE', isCurrent: true },
     ]).onConflictDoNothing();
-    console.log('✅ Products created\n');
 
-    console.log('🔧 Creating initial BOMs & Operations for products...');
-    
-    // 1. BOM for LFP Battery Module 48V
-    const batBomId = crypto.randomUUID();
-    const batBomV1Id = crypto.randomUUID();
+    // CatalogItemContent (locale-aware, approved field gates regional publish)
+    await db.insert(schema.catalogItemContent).values([
+        { id: crypto.randomUUID(), catalogItemVersionId: veloV1Id, locale: 'en-US', contentType: 'IMAGE',       filename: 'velo-runner-hero-us.jpg',  url: 'https://cdn.synchroshift.com/velo-runner-hero-us.jpg',  approved: true  },
+        { id: crypto.randomUUID(), catalogItemVersionId: veloV1Id, locale: 'en-US', contentType: 'DESCRIPTION', filename: 'velo-desc-en.md',           url: 'https://cdn.synchroshift.com/velo-desc-en.md',           approved: true  },
+        { id: crypto.randomUUID(), catalogItemVersionId: veloV1Id, locale: 'fr-FR', contentType: 'IMAGE',       filename: 'velo-runner-hero-fr.jpg',  url: 'https://cdn.synchroshift.com/velo-runner-hero-fr.jpg',  approved: false }, // Not approved — blocks EU isLive
+        { id: crypto.randomUUID(), catalogItemVersionId: veloV1Id, locale: 'fr-FR', contentType: 'DESCRIPTION', filename: 'velo-desc-fr.md',           url: 'https://cdn.synchroshift.com/velo-desc-fr.md',           approved: false }, // Not approved
+    ]).onConflictDoNothing();
 
-    await db.insert(schema.boms).values({ id: batBomId, productId: batteryModuleId }).onConflictDoNothing();
-    await db.insert(schema.bomVersions).values({
-        id: batBomV1Id,
-        bomId: batBomId,
-        productVersionId: batV1Id,
-        version: 1,
-        status: 'ACTIVE',
-        isCurrent: true,
+    // VariantSet + VariantSetVersion for Velo Runner Pro
+    const veloVsId   = crypto.randomUUID();
+    const veloVsV1Id = crypto.randomUUID();
+
+    await db.insert(schema.variantSets).values({ id: veloVsId, catalogItemId: veloId }).onConflictDoNothing();
+    await db.insert(schema.variantSetVersions).values({
+        id: veloVsV1Id, variantSetId: veloVsId, catalogItemVersionId: veloV1Id,
+        version: 1, status: 'ACTIVE', isCurrent: true,
     }).onConflictDoNothing();
 
-    await db.insert(schema.bomComponents).values([
-        { id: crypto.randomUUID(), bomVersionId: batBomV1Id, componentVersionId: screwV1Id, quantity: 24 },
+    // Variants (was BOMComponents) — Color+Size attribute pairs
+    await db.insert(schema.variants).values([
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: redV1Id,  attributeName: 'Color', attributeValue: 'Red',  stockQty: 200 },
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: redV1Id,  attributeName: 'Size',  attributeValue: '42',   stockQty: 200 },
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: blueV1Id, attributeName: 'Color', attributeValue: 'Blue', stockQty: 150 },
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, variantVersionId: blueV1Id, attributeName: 'Size',  attributeValue: '44',   stockQty: 150 },
     ]).onConflictDoNothing();
 
-    await db.insert(schema.bomOperations).values([
-        { id: crypto.randomUUID(), bomVersionId: batBomV1Id, name: 'Cell Spot Welding', timeMinutes: 40, workCenter: 'Station 1' },
-        { id: crypto.randomUUID(), bomVersionId: batBomV1Id, name: 'BMS Harness & Casing', timeMinutes: 20, workCenter: 'Station 2' },
+    // Channel Publish Rules — staggered: WEB/US live immediately, MARKETPLACE/US pending, EU not live (blocked by unapproved fr-FR content)
+    await db.insert(schema.channelPublishRules).values([
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, channel: 'WEB',         region: 'US',   isLive: true,  goLiveAt: null,                     publishLeadMinutes: 5  },
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, channel: 'MARKETPLACE', region: 'US',   isLive: false, goLiveAt: new Date('2026-09-10'),    publishLeadMinutes: 30 },
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, channel: 'WEB',         region: 'EU',   isLive: false, goLiveAt: null,                     publishLeadMinutes: 10 }, // Blocked: fr-FR content not approved
+        { id: crypto.randomUUID(), variantSetVersionId: veloVsV1Id, channel: 'MOBILE_APP',  region: 'APAC', isLive: true,  goLiveAt: null,                     publishLeadMinutes: 0  },
     ]).onConflictDoNothing();
 
-    // 2. BOM for Inverter Main Board
-    const invBomId = crypto.randomUUID();
-    const invBomV1Id = crypto.randomUUID();
+    console.log('✅ Velo Runner Pro seeded\n');
 
-    await db.insert(schema.boms).values({ id: invBomId, productId: inverterId }).onConflictDoNothing();
-    await db.insert(schema.bomVersions).values({
-        id: invBomV1Id,
-        bomId: invBomId,
-        productVersionId: invV1Id,
-        version: 1,
+    // ── SCENARIO 2: Beauty SKU — Luminos Glow Serum (with Promotion conflict demo) ──
+    // An active promotion overlaps this item's price so /validate immediately flags conflict.
+    console.log('💄 Seeding Scenario 2: Luminos Glow Serum (beauty SKU + overlapping Promotion)...');
+
+    const luminosId = crypto.randomUUID();
+    await db.insert(schema.catalogItems).values(
+        { id: luminosId, name: 'Luminos Glow Serum 50ml', sku: 'LGS-050', brand: 'Luminos', category: 'Beauty' }
+    ).onConflictDoNothing();
+
+    const luminosV1Id = crypto.randomUUID();
+    await db.insert(schema.catalogItemVersions).values(
+        { id: luminosV1Id, catalogItemId: luminosId, version: 1, salePrice: '79.99', costPrice: '28.00', currency: 'USD', status: 'ACTIVE', isCurrent: true }
+    ).onConflictDoNothing();
+
+    await db.insert(schema.catalogItemContent).values([
+        { id: crypto.randomUUID(), catalogItemVersionId: luminosV1Id, locale: 'en-US', contentType: 'IMAGE',       filename: 'luminos-glow-hero.jpg', url: 'https://cdn.synchroshift.com/luminos-glow-hero.jpg', approved: true },
+        { id: crypto.randomUUID(), catalogItemVersionId: luminosV1Id, locale: 'en-US', contentType: 'SPEC_SHEET',  filename: 'luminos-ingredients.pdf', url: 'https://cdn.synchroshift.com/luminos-ingredients.pdf', approved: true },
+    ]).onConflictDoNothing();
+
+    // ACTIVE promotion overlapping now — any CCR that changes draftSalePrice for luminosId
+    // and has an effectiveDate within this range will get promotionConflictFlag=true from /validate.
+    await db.insert(schema.promotions).values({
+        id: crypto.randomUUID(),
+        catalogItemId: luminosId,
+        name: 'Summer Glow Sale 20% Off',
+        discountPercent: '20.00',
+        startDate: new Date('2026-08-01'),
+        endDate:   new Date('2026-09-30'), // overlaps today (2026-09-04)
         status: 'ACTIVE',
-        isCurrent: true,
     }).onConflictDoNothing();
 
-    await db.insert(schema.bomComponents).values([
-        { id: crypto.randomUUID(), bomVersionId: invBomV1Id, componentVersionId: screwV1Id, quantity: 4 },
-    ]).onConflictDoNothing();
+    const luminosVsId   = crypto.randomUUID();
+    const luminosVsV1Id = crypto.randomUUID();
 
-    await db.insert(schema.bomOperations).values([
-        { id: crypto.randomUUID(), bomVersionId: invBomV1Id, name: 'SMT Component Pick-and-Place', timeMinutes: 25, workCenter: 'SMT Line 1' },
-        { id: crypto.randomUUID(), bomVersionId: invBomV1Id, name: 'Circuit Calibration & Test', timeMinutes: 15, workCenter: 'Test Bench A' },
-    ]).onConflictDoNothing();
-
-    // 3. Main BOM for EcoFlow Delta Pro (Final Assembly)
-    const deltaBomId = crypto.randomUUID();
-    const deltaBomV2Id = crypto.randomUUID();
-
-    await db.insert(schema.boms).values({ id: deltaBomId, productId: deltaProId }).onConflictDoNothing();
-    await db.insert(schema.bomVersions).values({
-        id: deltaBomV2Id,
-        bomId: deltaBomId,
-        productVersionId: deltaV2Id,
-        version: 2,
-        status: 'ACTIVE',
-        isCurrent: true,
+    await db.insert(schema.variantSets).values({ id: luminosVsId, catalogItemId: luminosId }).onConflictDoNothing();
+    await db.insert(schema.variantSetVersions).values({
+        id: luminosVsV1Id, variantSetId: luminosVsId, catalogItemVersionId: luminosV1Id,
+        version: 1, status: 'ACTIVE', isCurrent: true,
     }).onConflictDoNothing();
 
-    await db.insert(schema.bomComponents).values([
-        { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, componentVersionId: batV1Id, quantity: 1 },
-        { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, componentVersionId: invV1Id, quantity: 1 },
-        { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, componentVersionId: screwV1Id, quantity: 16 },
+    await db.insert(schema.channelPublishRules).values([
+        { id: crypto.randomUUID(), variantSetVersionId: luminosVsV1Id, channel: 'WEB',        region: 'US', isLive: true,  goLiveAt: null, publishLeadMinutes: 5  },
+        { id: crypto.randomUUID(), variantSetVersionId: luminosVsV1Id, channel: 'MOBILE_APP', region: 'US', isLive: true,  goLiveAt: null, publishLeadMinutes: 0  },
     ]).onConflictDoNothing();
 
-    await db.insert(schema.bomOperations).values([
-        { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, name: 'Sub-assembly Integration', timeMinutes: 50, workCenter: 'Assembly Line B' },
-        { id: crypto.randomUUID(), bomVersionId: deltaBomV2Id, name: 'Full Burn-in & Discharge Testing', timeMinutes: 60, workCenter: 'Burn-in Chamber 2' },
+    console.log('✅ Luminos Glow Serum seeded\n');
+
+    // ── SCENARIO 3: Rollback demo — Apex Trail Boot ──────────────────────────
+    // v1 is ARCHIVED (simulates a price that was reverted), v2 is ACTIVE.
+    // A Rollback CCR can reference v1 to restore it as v3.
+    console.log('🥾 Seeding Scenario 3: Apex Trail Boot (rollback demo — archived v1 available)...');
+
+    const apexId = crypto.randomUUID();
+    await db.insert(schema.catalogItems).values(
+        { id: apexId, name: 'Apex Trail Boot', sku: 'ATB-200', brand: 'Apex', category: 'Footwear' }
+    ).onConflictDoNothing();
+
+    const apexV1Id = crypto.randomUUID(); // ARCHIVED — rollback target
+    const apexV2Id = crypto.randomUUID(); // ACTIVE — current
+
+    await db.insert(schema.catalogItemVersions).values([
+        { id: apexV1Id, catalogItemId: apexId, version: 1, salePrice: '149.99', costPrice: '65.00', currency: 'USD', status: 'ARCHIVED', isCurrent: false },
+        { id: apexV2Id, catalogItemId: apexId, version: 2, salePrice: '169.99', costPrice: '72.00', currency: 'USD', status: 'ACTIVE',   isCurrent: true  },
     ]).onConflictDoNothing();
 
-    console.log('🪵 Seeding Scenario 1: Wooden Table...');
-    const woodenTableId = crypto.randomUUID();
-    const legId = crypto.randomUUID();
-    const topId = crypto.randomUUID();
-    const woodScrewId = crypto.randomUUID();
-    const varnishId = crypto.randomUUID();
+    const apexVsId   = crypto.randomUUID();
+    const apexVsV1Id = crypto.randomUUID();
 
-    await db.insert(schema.products).values([
-        { id: woodenTableId, name: 'Wooden Table' },
-        { id: legId, name: 'Wooden Legs' },
-        { id: topId, name: 'Wooden Top' },
-        { id: woodScrewId, name: 'Screws (M4 Wood)' },
-        { id: varnishId, name: 'Varnish Bottle' },
-    ]).onConflictDoNothing();
-
-    const tableV1Id = crypto.randomUUID();
-    const legV1Id = crypto.randomUUID();
-    const topV1Id = crypto.randomUUID();
-    const woodScrewV1Id = crypto.randomUUID();
-    const varnishV1Id = crypto.randomUUID();
-
-    await db.insert(schema.productVersions).values([
-        { id: tableV1Id, productId: woodenTableId, version: 1, salePrice: '250.00', costPrice: '100.00', status: 'ACTIVE', isCurrent: true },
-        { id: legV1Id, productId: legId, version: 1, salePrice: '15.00', costPrice: '5.00', status: 'ACTIVE', isCurrent: true },
-        { id: topV1Id, productId: topId, version: 1, salePrice: '80.00', costPrice: '30.00', status: 'ACTIVE', isCurrent: true },
-        { id: woodScrewV1Id, productId: woodScrewId, version: 1, salePrice: '0.15', costPrice: '0.05', status: 'ACTIVE', isCurrent: true },
-        { id: varnishV1Id, productId: varnishId, version: 1, salePrice: '12.00', costPrice: '4.00', status: 'ACTIVE', isCurrent: true },
-    ]).onConflictDoNothing();
-
-    const tableBomId = crypto.randomUUID();
-    const tableBomV1Id = crypto.randomUUID();
-
-    await db.insert(schema.boms).values({ id: tableBomId, productId: woodenTableId }).onConflictDoNothing();
-    await db.insert(schema.bomVersions).values({
-        id: tableBomV1Id,
-        bomId: tableBomId,
-        productVersionId: tableV1Id,
-        version: 1,
-        status: 'ACTIVE',
-        isCurrent: true,
+    await db.insert(schema.variantSets).values({ id: apexVsId, catalogItemId: apexId }).onConflictDoNothing();
+    await db.insert(schema.variantSetVersions).values({
+        id: apexVsV1Id, variantSetId: apexVsId, catalogItemVersionId: apexV2Id,
+        version: 1, status: 'ACTIVE', isCurrent: true,
     }).onConflictDoNothing();
 
-    await db.insert(schema.bomComponents).values([
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: legV1Id, quantity: 4 },
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: topV1Id, quantity: 1 },
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: woodScrewV1Id, quantity: 12 },
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, componentVersionId: varnishV1Id, quantity: 1 },
+    await db.insert(schema.channelPublishRules).values([
+        { id: crypto.randomUUID(), variantSetVersionId: apexVsV1Id, channel: 'WEB',         region: 'US', isLive: true, goLiveAt: null, publishLeadMinutes: 5 },
+        { id: crypto.randomUUID(), variantSetVersionId: apexVsV1Id, channel: 'MARKETPLACE',  region: 'US', isLive: true, goLiveAt: null, publishLeadMinutes: 15 },
     ]).onConflictDoNothing();
 
-    await db.insert(schema.bomOperations).values([
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Assembly', timeMinutes: 60, workCenter: 'Assembly Shop' },
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Painting', timeMinutes: 30, workCenter: 'Paint Shop' },
-        { id: crypto.randomUUID(), bomVersionId: tableBomV1Id, name: 'Packing', timeMinutes: 20, workCenter: 'Shipping Dept' },
-    ]).onConflictDoNothing();
+    console.log(' Apex Trail Boot seeded (v1 ARCHIVED for rollback demo)\n');
 
-    console.log('📱 Seeding Scenario 2: iPhone 17 Pricing Update...');
-    const iphoneId = crypto.randomUUID();
-    await db.insert(schema.products).values({ id: iphoneId, name: 'iPhone 17 Pro' }).onConflictDoNothing();
+    // ── Sample CCRs (in-flight for demo) ────────────────────────────────────
+    console.log(' Seeding sample CCRs...');
 
-    const iphoneV1Id = crypto.randomUUID();
-    const iphoneV2Id = crypto.randomUUID();
+    // CCR 1: Velo Runner Pro price bump — in Review, triggers N-of-M (needs 2 approvals)
+    const ccr1Id = crypto.randomUUID();
+    await db.insert(schema.catalogChangeRequests).values({
+        id: ccr1Id,
+        title: 'Velo Runner Pro — Seasonal Price Increase',
+        type: 'CATALOG_ITEM',
+        createdById: merch1Id,
+        assigneeId: approverId,
+        stageId: 'stage-review',
+        effectiveDate: new Date('2026-10-01'),
+        versionUpdate: true,
+        catalogItemVersionId: veloV1Id,
+        draftCatalogItemId: veloId,
+        draftSalePrice: '139.99',
+        draftCostPrice: '55.00',
+        draftCurrency: 'USD',
+        promotionConflictFlag: false,
+    }).onConflictDoNothing();
 
-    await db.insert(schema.productVersions).values([
-        { id: iphoneV1Id, productId: iphoneId, version: 1, salePrice: '999.00', costPrice: '450.00', status: 'ARCHIVED', isCurrent: false },
-        { id: iphoneV2Id, productId: iphoneId, version: 2, salePrice: '1099.00', costPrice: '480.00', status: 'ACTIVE', isCurrent: true },
-    ]).onConflictDoNothing();
+    // CCR 2: Luminos Glow Serum price change — draft stage, has promotion conflict
+    const ccr2Id = crypto.randomUUID();
+    await db.insert(schema.catalogChangeRequests).values({
+        id: ccr2Id,
+        title: 'Luminos Glow Serum — Post-Sale Price Correction',
+        type: 'CATALOG_ITEM',
+        createdById: merch2Id,
+        assigneeId: approverId,
+        stageId: 'stage-draft',
+        effectiveDate: new Date('2026-09-15'),
+        versionUpdate: true,
+        catalogItemVersionId: luminosV1Id,
+        draftCatalogItemId: luminosId,
+        draftSalePrice: '89.99',
+        draftCostPrice: '28.00',
+        draftCurrency: 'USD',
+        promotionConflictFlag: true, // Pre-flagged: 'Summer Glow Sale' overlaps effectiveDate
+    }).onConflictDoNothing();
 
-    console.log('📝 Seeding Sample ECOs...');
-    await db.insert(schema.ecos).values([
-        {
-            id: crypto.randomUUID(),
-            title: 'Upgrade SynchroShift Power Hub Battery Capacity',
-            type: 'PRODUCT',
-            createdById: eng1Id,
-            assigneeId: approverId,
-            stageId: 'stage-review',
-            productVersionId: deltaV2Id,
-            draftProductId: deltaProId,
-            draftName: 'SynchroShift Power Hub Max',
-            draftSalePrice: '3999.00',
-            draftCostPrice: '1850.00',
-        },
-        {
-            id: crypto.randomUUID(),
-            title: 'iPhone 17 Pro Price Adjustment',
-            type: 'PRODUCT',
-            createdById: eng2Id,
-            assigneeId: approverId,
-            stageId: 'stage-approved',
-            productVersionId: iphoneV2Id,
-            draftProductId: iphoneId,
-            draftName: 'iPhone 17 Pro',
-            draftSalePrice: '1099.00',
-            draftCostPrice: '480.00',
-        },
-        {
-            id: crypto.randomUUID(),
-            title: 'Wooden Table Structural Screw Upgrade',
-            type: 'BOM_CHANGE',
-            createdById: eng1Id,
-            assigneeId: eng1Id,
-            stageId: 'stage-draft',
-            bomVersionId: tableBomV1Id,
-            draftBomId: tableBomId,
-            draftNotes: 'Replacing standard wood screws with reinforced M4 screws.',
-        },
-        {
-            id: crypto.randomUUID(),
-            title: 'Inverter Main Board Assembly Standard Modernization',
-            type: 'BOM',
-            createdById: eng2Id,
-            assigneeId: opsId,
-            stageId: 'stage-implemented',
-            bomVersionId: invBomV1Id,
-            draftBomId: invBomId,
-        },
-    ]).onConflictDoNothing();
+    // CCR 3: Apex Trail Boot rollback to v1 — ready to demo
+    const ccr3Id = crypto.randomUUID();
+    await db.insert(schema.catalogChangeRequests).values({
+        id: ccr3Id,
+        title: 'Apex Trail Boot — Rollback to v1 Pricing ($149.99)',
+        type: 'ROLLBACK',
+        createdById: adminId,
+        assigneeId: approverId,
+        stageId: 'stage-approved',
+        versionUpdate: true,
+        rollbackTargetVersionId: apexV1Id,
+        promotionConflictFlag: false,
+    }).onConflictDoNothing();
 
-    console.log('✅ BOMs, Operations, and sample ECOs created for all products\n');
+    // CCR 4: Velo VariantSet change (add new Blue/46 size) — draft
+    const ccr4Id = crypto.randomUUID();
+    await db.insert(schema.catalogChangeRequests).values({
+        id: ccr4Id,
+        title: 'Velo Runner Pro — Add Blue/46 Variant',
+        type: 'VARIANT_SET',
+        createdById: merch1Id,
+        stageId: 'stage-draft',
+        versionUpdate: true,
+        variantSetVersionId: veloVsV1Id,
+        draftVariantSetId: veloVsId,
+        draftNotes: 'Adding Blue/46 size based on customer demand data.',
+        draftVariants: [{ action: 'ADD', variantVersionId: blueV1Id, attributeName: 'Size', attributeValue: '46', stockQty: 80 }],
+        draftChannelRules: [],
+        promotionConflictFlag: false,
+    }).onConflictDoNothing();
 
-    console.log('✅ Seed completed successfully!');
+    // Audit log for CCR 1 creation
+    await db.insert(schema.auditLogs).values({
+        id: crypto.randomUUID(),
+        ccrId: ccr1Id,
+        entity: 'CatalogChangeRequest',
+        entityId: ccr1Id,
+        userId: merch1Id,
+        action: 'CCR_CREATED',
+        oldValue: null,
+        newValue: JSON.stringify({ title: 'Velo Runner Pro — Seasonal Price Increase', type: 'CATALOG_ITEM', stage: 'Draft' }),
+    }).onConflictDoNothing();
+
+    console.log(' Sample CCRs seeded\n');
+    console.log(' Seed completed successfully!');
+    console.log('\nDemo credentials (all passwords: admin123):');
+    console.log('  admin@synchroshift.com          — ADMIN');
+    console.log('  merch1@synchroshift.com         — MERCHANDISER');
+    console.log('  merch2@synchroshift.com         — MERCHANDISER');
+    console.log('  approver@synchroshift.com       — CATEGORY_APPROVER');
+    console.log('  approver2@synchroshift.com      — CATEGORY_APPROVER (2nd approver for N-of-M)');
+    console.log('  storefront@synchroshift.com     — STOREFRONT_VIEWER');
 }
 
 main()
     .catch((err) => {
-        console.error('❌ Seed error:', err);
+        console.error(' Seed error:', err);
         process.exit(1);
     })
     .finally(() => {

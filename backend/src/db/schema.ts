@@ -1,18 +1,35 @@
 import { pgTable, text, timestamp, integer, numeric, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Enums
-export const roleEnum = pgEnum('Role', ['ENGINEERING_USER', 'APPROVER', 'OPERATIONS_USER', 'ADMIN']);
+// ============================================================
+// ENUMS
+// ============================================================
+
+// Roles: Merchandiser proposes changes, Category Approver reviews,
+// Storefront Viewer only ever sees ACTIVE+isCurrent catalog data, Admin has full control.
+export const roleEnum = pgEnum('Role', ['MERCHANDISER', 'CATEGORY_APPROVER', 'STOREFRONT_VIEWER', 'ADMIN']);
+
 export const itemStatusEnum = pgEnum('ItemStatus', ['ACTIVE', 'ARCHIVED']);
-export const ecoTypeEnum = pgEnum('ECOType', ['PRODUCT', 'BOM', 'BOM_CHANGE']);
-export type ECOType = 'PRODUCT' | 'BOM' | 'BOM_CHANGE';
-export const ECOType = {
-  PRODUCT: 'PRODUCT' as const,
-  BOM: 'BOM' as const,
-  BOM_CHANGE: 'BOM_CHANGE' as const,
+
+// CCR = Catalog Change Request (was ECO)
+export const ccrTypeEnum = pgEnum('CCRType', ['CATALOG_ITEM', 'VARIANT_SET', 'VARIANT_SET_CHANGE', 'ROLLBACK']);
+export type CCRType = 'CATALOG_ITEM' | 'VARIANT_SET' | 'VARIANT_SET_CHANGE' | 'ROLLBACK';
+export const CCRType = {
+  CATALOG_ITEM: 'CATALOG_ITEM' as const,
+  VARIANT_SET: 'VARIANT_SET' as const,
+  VARIANT_SET_CHANGE: 'VARIANT_SET_CHANGE' as const,
+  ROLLBACK: 'ROLLBACK' as const,
 };
 
-// Users
+export const channelEnum = pgEnum('Channel', ['WEB', 'MOBILE_APP', 'MARKETPLACE']);
+
+export const contentTypeEnum = pgEnum('ContentType', ['IMAGE', 'DESCRIPTION', 'SPEC_SHEET']);
+
+export const approvalDecisionEnum = pgEnum('ApprovalDecision', ['APPROVED', 'REJECTED']);
+
+// ============================================================
+// USERS
+// ============================================================
 export const users = pgTable('User', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
@@ -22,112 +39,180 @@ export const users = pgTable('User', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Products
-export const products = pgTable('Product', {
+// ============================================================
+// CATALOG ITEM (was Product)
+// ============================================================
+export const catalogItems = pgTable('CatalogItem', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  sku: text('sku').notNull().unique(),
+  brand: text('brand'),
+  category: text('category'),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Product Versions
-export const productVersions = pgTable('ProductVersion', {
+// Catalog Item Version (was ProductVersion) — immutable revision
+export const catalogItemVersions = pgTable('CatalogItemVersion', {
   id: text('id').primaryKey(),
-  productId: text('productId').notNull().references(() => products.id),
+  catalogItemId: text('catalogItemId').notNull().references(() => catalogItems.id),
   version: integer('version').notNull(),
   salePrice: numeric('salePrice', { precision: 10, scale: 2 }).notNull(),
   costPrice: numeric('costPrice', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').default('USD').notNull(),
   status: itemStatusEnum('status').notNull(),
   isCurrent: boolean('isCurrent').default(false).notNull(),
+  // Scheduled/future-dated activation: approved version doesn't go ACTIVE until this timestamp.
+  // TODO: A real cron scheduler (node-cron) would call publishNowService.activatePendingVersions()
+  //       periodically to flip status/isCurrent when now() >= effectiveFrom.
+  //       For demo purposes, use the manual POST /api/publish-now/activate endpoint instead.
+  effectiveFrom: timestamp('effectiveFrom'),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Product Attachments
-export const productAttachments = pgTable('ProductAttachment', {
+// Catalog Item Content (was ProductAttachment) — locale-aware, approval-gated
+export const catalogItemContent = pgTable('CatalogItemContent', {
   id: text('id').primaryKey(),
-  productVersionId: text('productVersionId').notNull().references(() => productVersions.id),
+  catalogItemVersionId: text('catalogItemVersionId').notNull().references(() => catalogItemVersions.id),
+  locale: text('locale').notNull().default('en-US'), // e.g. en-US, fr-FR, ja-JP
+  contentType: contentTypeEnum('contentType').notNull(),
   filename: text('filename').notNull(),
   url: text('url').notNull(),
+  // A locale's content can't go live on that locale's channel rule until this is true.
+  // Gate check in channelPublishRules isLive toggle: validates approved=true for matching locale.
+  approved: boolean('approved').default(false).notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// BOM Identity
-export const boms = pgTable('BOM', {
+// ============================================================
+// VARIANT SET (was BOM) — the "structure" of a catalog item (its variants + publish rules)
+// ============================================================
+export const variantSets = pgTable('VariantSet', {
   id: text('id').primaryKey(),
-  productId: text('productId').notNull().references(() => products.id),
+  catalogItemId: text('catalogItemId').notNull().references(() => catalogItems.id),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// BOM Version
-export const bomVersions = pgTable('BOMVersion', {
+export const variantSetVersions = pgTable('VariantSetVersion', {
   id: text('id').primaryKey(),
-  bomId: text('bomId').notNull().references(() => boms.id),
-  productVersionId: text('productVersionId').notNull().references(() => productVersions.id),
+  variantSetId: text('variantSetId').notNull().references(() => variantSets.id),
+  catalogItemVersionId: text('catalogItemVersionId').notNull().references(() => catalogItemVersions.id),
   version: integer('version').notNull(),
   status: itemStatusEnum('status').notNull(),
   isCurrent: boolean('isCurrent').default(false).notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// BOM Components
-export const bomComponents = pgTable('BOMComponent', {
+// Variant (was BOMComponent) — a specific color/size/etc SKU under this variant set.
+// Reuses catalogItemVersions recursively, exactly like BOMComponent reused productVersions.
+export const variants = pgTable('Variant', {
   id: text('id').primaryKey(),
-  bomVersionId: text('bomVersionId').notNull().references(() => bomVersions.id),
-  componentVersionId: text('componentVersionId').notNull().references(() => productVersions.id),
-  quantity: integer('quantity').notNull(),
+  variantSetVersionId: text('variantSetVersionId').notNull().references(() => variantSetVersions.id),
+  variantVersionId: text('variantVersionId').notNull().references(() => catalogItemVersions.id),
+  attributeName: text('attributeName').notNull(), // e.g. "Color", "Size"
+  attributeValue: text('attributeValue').notNull(), // e.g. "Red", "XL"
+  stockQty: integer('stockQty').notNull(),
 });
 
-// BOM Operations
-export const bomOperations = pgTable('BOMOperation', {
+// Channel Publish Rule (was BOMOperation) — enables staggered multi-channel/region rollout.
+// Each row is independently live/not-live per channel+region, unlike one global ACTIVE flag.
+export const channelPublishRules = pgTable('ChannelPublishRule', {
   id: text('id').primaryKey(),
-  bomVersionId: text('bomVersionId').notNull().references(() => bomVersions.id),
+  variantSetVersionId: text('variantSetVersionId').notNull().references(() => variantSetVersions.id),
+  channel: channelEnum('channel').notNull(),
+  region: text('region').notNull(), // e.g. "US", "EU", "APAC"
+  isLive: boolean('isLive').default(false).notNull(),
+  // TODO: Real scheduler calls publishNowService.activatePendingChannelRules() periodically.
+  //       Manual equivalent: POST /api/publish-now/channels
+  goLiveAt: timestamp('goLiveAt'), // scheduled activation per channel/region
+  publishLeadMinutes: integer('publishLeadMinutes').default(0).notNull(), // CDN/cache propagation buffer
+});
+
+// ============================================================
+// PROMOTIONS (new) — enables promotion-conflict detection during CCR validation
+// ============================================================
+export const promotions = pgTable('Promotion', {
+  id: text('id').primaryKey(),
+  catalogItemId: text('catalogItemId').notNull().references(() => catalogItems.id),
   name: text('name').notNull(),
-  timeMinutes: integer('timeMinutes').notNull(),
-  workCenter: text('workCenter').notNull(),
+  discountPercent: numeric('discountPercent', { precision: 5, scale: 2 }).notNull(),
+  startDate: timestamp('startDate').notNull(),
+  endDate: timestamp('endDate').notNull(),
+  status: itemStatusEnum('status').notNull(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
-// Workflow Stage
-export const ecoStages = pgTable('ECOStage', {
+// ============================================================
+// WORKFLOW STAGES (was ECOStage)
+// ============================================================
+export const ccrStages = pgTable('CCRStage', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   sequence: integer('sequence').notNull(),
   requiresApproval: boolean('requiresApproval').default(false).notNull(),
   isFinal: boolean('isFinal').default(false).notNull(),
+  // N-of-M multi-approver support. Default 1 preserves single-approver behavior.
+  minApprovals: integer('minApprovals').default(1).notNull(),
 });
 
-// ECO Core
-export const ecos = pgTable('ECO', {
+// ============================================================
+// CATALOG CHANGE REQUEST (was ECO) — the staging/sandbox object
+// ============================================================
+export const catalogChangeRequests = pgTable('CatalogChangeRequest', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  type: ecoTypeEnum('type').notNull(),
+  type: ccrTypeEnum('type').notNull(),
   createdById: text('createdById').notNull().references(() => users.id),
   assigneeId: text('assigneeId').references(() => users.id),
-  stageId: text('stageId').notNull().references(() => ecoStages.id),
+  stageId: text('stageId').notNull().references(() => ccrStages.id),
   effectiveDate: timestamp('effectiveDate'),
   versionUpdate: boolean('versionUpdate').default(true).notNull(),
   mandatoryApproval: boolean('mandatoryApproval').default(false).notNull(),
-  productVersionId: text('productVersionId').references(() => productVersions.id),
-  bomVersionId: text('bomVersionId').references(() => bomVersions.id),
+  catalogItemVersionId: text('catalogItemVersionId').references(() => catalogItemVersions.id),
+  variantSetVersionId: text('variantSetVersionId').references(() => variantSetVersions.id),
 
-  // Draft Data
-  draftProductId: text('draftProductId').references(() => products.id),
+  // Draft Data (was: draftProductId, draftName, draftSalePrice, draftCostPrice)
+  draftCatalogItemId: text('draftCatalogItemId').references(() => catalogItems.id),
   draftName: text('draftName'),
   draftSalePrice: numeric('draftSalePrice', { precision: 10, scale: 2 }),
   draftCostPrice: numeric('draftCostPrice', { precision: 10, scale: 2 }),
+  draftCurrency: text('draftCurrency'),
 
-  draftBomId: text('draftBomId').references(() => boms.id),
+  // BOM-equivalent draft (was: draftBomId, draftNotes, draftComponents, draftOperations, draftAttachments)
+  draftVariantSetId: text('draftVariantSetId').references(() => variantSets.id),
   draftNotes: text('draftNotes'),
-  draftComponents: jsonb('draftComponents'),
-  draftOperations: jsonb('draftOperations'),
-  draftAttachments: jsonb('draftAttachments'),
+  draftVariants: jsonb('draftVariants'),       // was draftComponents
+  draftChannelRules: jsonb('draftChannelRules'), // was draftOperations
+  draftContent: jsonb('draftContent'),           // was draftAttachments
+
+  // Rollback CCR: if type = ROLLBACK, references the ARCHIVED version to restore.
+  // On apply: current ACTIVE version archived, target version cloned forward as new current.
+  rollbackTargetVersionId: text('rollbackTargetVersionId').references(() => catalogItemVersions.id),
+
+  // Set by /validate endpoint: true if CCR price change overlaps an ACTIVE Promotion's date range.
+  // Non-blocking — surfaces as warning to approver, does not block submission.
+  promotionConflictFlag: boolean('promotionConflictFlag').default(false).notNull(),
 
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 });
 
-// Audit Log
+// Individual approval decisions against a CCR — supports N-of-M multi-approver stages.
+// A CCR only advances past a stage once count(decision=APPROVED) >= CCRStage.minApprovals.
+export const ccrApprovals = pgTable('CCRApproval', {
+  id: text('id').primaryKey(),
+  ccrId: text('ccrId').notNull().references(() => catalogChangeRequests.id),
+  approverId: text('approverId').notNull().references(() => users.id),
+  decision: approvalDecisionEnum('decision').notNull(),
+  comment: text('comment'),
+  decidedAt: timestamp('decidedAt').defaultNow().notNull(),
+});
+
+// ============================================================
+// AUDIT LOG (unchanged shape, FK renamed ecoId -> ccrId)
+// ============================================================
 export const auditLogs = pgTable('AuditLog', {
   id: text('id').primaryKey(),
-  ecoId: text('ecoId').references(() => ecos.id),
+  ccrId: text('ccrId').references(() => catalogChangeRequests.id),
   entity: text('entity').notNull(),
   entityId: text('entityId').notNull(),
   userId: text('userId').notNull().references(() => users.id),
@@ -137,78 +222,97 @@ export const auditLogs = pgTable('AuditLog', {
   timestamp: timestamp('timestamp').defaultNow().notNull(),
 });
 
-// Operations Task
-export const operationsTasks = pgTable('OperationsTask', {
+// ============================================================
+// PUBLISH TASK (was OperationsTask)
+// ============================================================
+export const publishTasks = pgTable('PublishTask', {
   id: text('id').primaryKey(),
-  ecoId: text('ecoId').notNull().references(() => ecos.id),
+  ccrId: text('ccrId').notNull().references(() => catalogChangeRequests.id),
   title: text('title').notNull(),
   description: text('description'),
+  channel: channelEnum('channel'),
+  scheduledFor: timestamp('scheduledFor'),
   status: text('status').default('PENDING').notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   completedAt: timestamp('completedAt'),
 });
 
-// Relations
+// ============================================================
+// RELATIONS
+// ============================================================
 export const usersRelations = relations(users, ({ many }) => ({
-  ecos: many(ecos, { relationName: 'createdBy' }),
-  assignedEcos: many(ecos, { relationName: 'assignedTo' }),
+  ccrs: many(catalogChangeRequests, { relationName: 'createdBy' }),
+  assignedCcrs: many(catalogChangeRequests, { relationName: 'assignedTo' }),
   auditLogs: many(auditLogs),
+  approvals: many(ccrApprovals),
 }));
 
-export const productsRelations = relations(products, ({ many }) => ({
-  versions: many(productVersions),
-  boms: many(boms),
+export const catalogItemsRelations = relations(catalogItems, ({ many }) => ({
+  versions: many(catalogItemVersions),
+  variantSets: many(variantSets),
+  promotions: many(promotions),
 }));
 
-export const productVersionsRelations = relations(productVersions, ({ one, many }) => ({
-  product: one(products, { fields: [productVersions.productId], references: [products.id] }),
-  attachments: many(productAttachments),
-  bomVersions: many(bomVersions),
-  componentsUsedIn: many(bomComponents),
+export const catalogItemVersionsRelations = relations(catalogItemVersions, ({ one, many }) => ({
+  catalogItem: one(catalogItems, { fields: [catalogItemVersions.catalogItemId], references: [catalogItems.id] }),
+  content: many(catalogItemContent),
+  variantSetVersions: many(variantSetVersions),
+  usedAsVariantIn: many(variants),
 }));
 
-export const productAttachmentsRelations = relations(productAttachments, ({ one }) => ({
-  productVersion: one(productVersions, { fields: [productAttachments.productVersionId], references: [productVersions.id] }),
+export const catalogItemContentRelations = relations(catalogItemContent, ({ one }) => ({
+  catalogItemVersion: one(catalogItemVersions, { fields: [catalogItemContent.catalogItemVersionId], references: [catalogItemVersions.id] }),
 }));
 
-export const bomsRelations = relations(boms, ({ one, many }) => ({
-  product: one(products, { fields: [boms.productId], references: [products.id] }),
-  versions: many(bomVersions),
+export const promotionsRelations = relations(promotions, ({ one }) => ({
+  catalogItem: one(catalogItems, { fields: [promotions.catalogItemId], references: [catalogItems.id] }),
 }));
 
-export const bomVersionsRelations = relations(bomVersions, ({ one, many }) => ({
-  bom: one(boms, { fields: [bomVersions.bomId], references: [boms.id] }),
-  productVersion: one(productVersions, { fields: [bomVersions.productVersionId], references: [productVersions.id] }),
-  components: many(bomComponents),
-  operations: many(bomOperations),
+export const variantSetsRelations = relations(variantSets, ({ one, many }) => ({
+  catalogItem: one(catalogItems, { fields: [variantSets.catalogItemId], references: [catalogItems.id] }),
+  versions: many(variantSetVersions),
 }));
 
-export const bomComponentsRelations = relations(bomComponents, ({ one }) => ({
-  bomVersion: one(bomVersions, { fields: [bomComponents.bomVersionId], references: [bomVersions.id] }),
-  componentVersion: one(productVersions, { fields: [bomComponents.componentVersionId], references: [productVersions.id] }),
+export const variantSetVersionsRelations = relations(variantSetVersions, ({ one, many }) => ({
+  variantSet: one(variantSets, { fields: [variantSetVersions.variantSetId], references: [variantSets.id] }),
+  catalogItemVersion: one(catalogItemVersions, { fields: [variantSetVersions.catalogItemVersionId], references: [catalogItemVersions.id] }),
+  variants: many(variants),
+  channelPublishRules: many(channelPublishRules),
 }));
 
-export const bomOperationsRelations = relations(bomOperations, ({ one }) => ({
-  bomVersion: one(bomVersions, { fields: [bomOperations.bomVersionId], references: [bomVersions.id] }),
+export const variantsRelations = relations(variants, ({ one }) => ({
+  variantSetVersion: one(variantSetVersions, { fields: [variants.variantSetVersionId], references: [variantSetVersions.id] }),
+  variantVersion: one(catalogItemVersions, { fields: [variants.variantVersionId], references: [catalogItemVersions.id] }),
 }));
 
-export const ecosRelations = relations(ecos, ({ one, many }) => ({
-  createdBy: one(users, { fields: [ecos.createdById], references: [users.id], relationName: 'createdBy' }),
-  assignedTo: one(users, { fields: [ecos.assigneeId], references: [users.id], relationName: 'assignedTo' }),
-  stage: one(ecoStages, { fields: [ecos.stageId], references: [ecoStages.id] }),
-  productVersion: one(productVersions, { fields: [ecos.productVersionId], references: [productVersions.id] }),
-  bomVersion: one(bomVersions, { fields: [ecos.bomVersionId], references: [bomVersions.id] }),
-  draftProduct: one(products, { fields: [ecos.draftProductId], references: [products.id] }),
-  draftBom: one(boms, { fields: [ecos.draftBomId], references: [boms.id] }),
+export const channelPublishRulesRelations = relations(channelPublishRules, ({ one }) => ({
+  variantSetVersion: one(variantSetVersions, { fields: [channelPublishRules.variantSetVersionId], references: [variantSetVersions.id] }),
+}));
+
+export const catalogChangeRequestsRelations = relations(catalogChangeRequests, ({ one, many }) => ({
+  createdBy: one(users, { fields: [catalogChangeRequests.createdById], references: [users.id], relationName: 'createdBy' }),
+  assignedTo: one(users, { fields: [catalogChangeRequests.assigneeId], references: [users.id], relationName: 'assignedTo' }),
+  stage: one(ccrStages, { fields: [catalogChangeRequests.stageId], references: [ccrStages.id] }),
+  catalogItemVersion: one(catalogItemVersions, { fields: [catalogChangeRequests.catalogItemVersionId], references: [catalogItemVersions.id] }),
+  variantSetVersion: one(variantSetVersions, { fields: [catalogChangeRequests.variantSetVersionId], references: [variantSetVersions.id] }),
+  draftCatalogItem: one(catalogItems, { fields: [catalogChangeRequests.draftCatalogItemId], references: [catalogItems.id] }),
+  draftVariantSet: one(variantSets, { fields: [catalogChangeRequests.draftVariantSetId], references: [variantSets.id] }),
+  rollbackTargetVersion: one(catalogItemVersions, { fields: [catalogChangeRequests.rollbackTargetVersionId], references: [catalogItemVersions.id] }),
   auditLogs: many(auditLogs),
-  operationsTasks: many(operationsTasks),
+  publishTasks: many(publishTasks),
+  approvals: many(ccrApprovals),
+}));
+
+export const ccrApprovalsRelations = relations(ccrApprovals, ({ one }) => ({
+  ccr: one(catalogChangeRequests, { fields: [ccrApprovals.ccrId], references: [catalogChangeRequests.id] }),
+  approver: one(users, { fields: [ccrApprovals.approverId], references: [users.id] }),
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
-  eco: one(ecos, { fields: [auditLogs.ecoId], references: [ecos.id] }),
+  ccr: one(catalogChangeRequests, { fields: [auditLogs.ccrId], references: [catalogChangeRequests.id] }),
   user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
 }));
 
-export const operationsTasksRelations = relations(operationsTasks, ({ one }) => ({
-  eco: one(ecos, { fields: [operationsTasks.ecoId], references: [ecos.id] }),
+export const publishTasksRelations = relations(publishTasks, ({ one }) => ({
+  ccr: one(catalogChangeRequests, { fields: [publishTasks.ccrId], references: [catalogChangeRequests.id] }),
 }));

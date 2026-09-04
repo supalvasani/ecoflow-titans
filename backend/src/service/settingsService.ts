@@ -3,8 +3,8 @@ import { eq, asc } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
 export const getStages = async () => {
-    return db.query.ecoStages.findMany({
-        orderBy: [asc(schema.ecoStages.sequence)],
+    return db.query.ccrStages.findMany({
+        orderBy: [asc(schema.ccrStages.sequence)],
     });
 };
 
@@ -14,6 +14,7 @@ export const updateStages = async (stages: Array<{
     sequence: number;
     requiresApproval: boolean;
     isFinal: boolean;
+    minApprovals?: number;
 }>) => {
     if (!stages || stages.length === 0) {
         throw new Error('At least one stage is required');
@@ -26,49 +27,51 @@ export const updateStages = async (stages: Array<{
 
     return await db.transaction(async (tx) => {
         // --- Delete stages that were removed from the payload ---
-        const currentStages = await tx.query.ecoStages.findMany();
+        const currentStages = await tx.query.ccrStages.findMany();
         const incomingIds = new Set(stages.filter(s => s.id).map(s => s.id));
         const stagesToDelete = currentStages.filter(s => !incomingIds.has(s.id));
 
         for (const stageToDelete of stagesToDelete) {
-            // Guard: do not delete a stage that has live ECOs in it
-            const ecoUsingStage = await tx.query.ecos.findFirst({
-                where: eq(schema.ecos.stageId, stageToDelete.id),
+            // Guard: do not delete a stage that has live CCRs in it
+            const ccrUsingStage = await tx.query.catalogChangeRequests.findFirst({
+                where: eq(schema.catalogChangeRequests.stageId, stageToDelete.id),
             });
-            if (ecoUsingStage) {
+            if (ccrUsingStage) {
                 throw new Error(
-                    `Cannot delete stage "${stageToDelete.name}" — it has active ECOs assigned to it.`
+                    `Cannot delete stage "${stageToDelete.name}" — it has active CCRs assigned to it.`
                 );
             }
-            await tx.delete(schema.ecoStages).where(eq(schema.ecoStages.id, stageToDelete.id));
+            await tx.delete(schema.ccrStages).where(eq(schema.ccrStages.id, stageToDelete.id));
         }
 
         // --- Upsert incoming stages ---
         const updatedStages = [];
         for (const stage of stages) {
             if (stage.id) {
-                await tx.update(schema.ecoStages)
+                await tx.update(schema.ccrStages)
                     .set({
                         name: stage.name,
                         sequence: stage.sequence,
                         requiresApproval: stage.requiresApproval,
                         isFinal: stage.isFinal,
+                        minApprovals: stage.minApprovals ?? 1,
                     })
-                    .where(eq(schema.ecoStages.id, stage.id));
+                    .where(eq(schema.ccrStages.id, stage.id));
 
-                const updated = await tx.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, stage.id) });
+                const updated = await tx.query.ccrStages.findFirst({ where: eq(schema.ccrStages.id, stage.id) });
                 updatedStages.push(updated);
             } else {
                 const newId = crypto.randomUUID();
-                await tx.insert(schema.ecoStages).values({
+                await tx.insert(schema.ccrStages).values({
                     id: newId,
                     name: stage.name,
                     sequence: stage.sequence,
                     requiresApproval: stage.requiresApproval,
                     isFinal: stage.isFinal,
+                    minApprovals: stage.minApprovals ?? 1,
                 });
 
-                const created = await tx.query.ecoStages.findFirst({ where: eq(schema.ecoStages.id, newId) });
+                const created = await tx.query.ccrStages.findFirst({ where: eq(schema.ccrStages.id, newId) });
                 updatedStages.push(created);
             }
         }
@@ -80,7 +83,7 @@ export const getApprovalRules = async () => {
     return {
         rules: [
             {
-                role: 'APPROVER',
+                role: 'CATEGORY_APPROVER',
                 canApprove: true,
                 canReject: true,
             },
@@ -90,17 +93,17 @@ export const getApprovalRules = async () => {
                 canReject: true,
             },
             {
-                role: 'ENGINEERING_USER',
+                role: 'MERCHANDISER',
                 canApprove: false,
                 canReject: false,
             },
             {
-                role: 'OPERATIONS_USER',
+                role: 'STOREFRONT_VIEWER',
                 canApprove: false,
                 canReject: false,
             },
         ],
-        requiresApprovalStages: ['REVIEW', 'APPROVED'],
+        requiresApprovalStages: ['Under Review', 'Approved'],
     };
 };
 

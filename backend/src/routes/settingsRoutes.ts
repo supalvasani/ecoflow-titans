@@ -9,7 +9,7 @@ import { authenticate, requireAdmin, requireRole } from '../middlewares/authMidd
 
 const router = Router();
 
-const requireNonOperations = requireRole('ADMIN', 'ENGINEERING_USER', 'APPROVER');
+const requireNonOperations = requireRole('ADMIN', 'MERCHANDISER', 'CATEGORY_APPROVER', 'ENGINEERING_USER', 'APPROVER');
 
 router.get('/stages', authenticate, requireNonOperations, getStages);
 router.post('/stages', authenticate, requireAdmin(), updateStages);

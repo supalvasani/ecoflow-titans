@@ -2,12 +2,12 @@ import { Request, Response } from 'express';
 import { db, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
 
-export const getOperationsTasks = async (req: Request, res: Response) => {
+export const getPublishTasks = async (req: Request, res: Response) => {
     try {
-        const tasks = await db.query.operationsTasks.findMany({
-            where: eq(schema.operationsTasks.status, 'PENDING'),
+        const tasks = await db.query.publishTasks.findMany({
+            where: eq(schema.publishTasks.status, 'PENDING'),
             with: {
-                eco: {
+                ccr: {
                     columns: {
                         title: true,
                         type: true,
@@ -15,32 +15,35 @@ export const getOperationsTasks = async (req: Request, res: Response) => {
                     },
                 },
             },
-            orderBy: [desc(schema.operationsTasks.createdAt)],
+            orderBy: [desc(schema.publishTasks.createdAt)],
         });
         res.json(tasks);
     } catch (error) {
-        console.error('Error fetching operations tasks:', error);
+        console.error('Error fetching publish tasks:', error);
         res.status(500).json({ error: 'Failed to fetch tasks' });
     }
 };
 
-export const completeOperationsTask = async (req: Request, res: Response) => {
+export const completePublishTask = async (req: Request, res: Response) => {
     try {
         const id = req.params.id as string;
-        await db.update(schema.operationsTasks)
+        await db.update(schema.publishTasks)
             .set({
                 status: 'COMPLETED',
                 completedAt: new Date(),
             })
-            .where(eq(schema.operationsTasks.id, id));
+            .where(eq(schema.publishTasks.id, id));
 
-        const updatedTask = await db.query.operationsTasks.findFirst({
-            where: eq(schema.operationsTasks.id, id),
+        const updatedTask = await db.query.publishTasks.findFirst({
+            where: eq(schema.publishTasks.id, id),
         });
 
         res.json(updatedTask);
     } catch (error) {
-        console.error('Error completing task:', error);
+        console.error('Error completing publish task:', error);
         res.status(500).json({ error: 'Failed to complete task' });
     }
 };
+
+export const getOperationsTasks = getPublishTasks;
+export const completeOperationsTask = completePublishTask;

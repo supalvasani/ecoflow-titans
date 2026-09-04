@@ -1,166 +1,124 @@
 import { db, schema } from '../db/index.js';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 
-export const getECOHistory = async (filters?: {
+/** CCR Change History (was: getECOHistory) */
+export const getCCRHistory = async (filters?: {
     type?: string;
     stageId?: string;
     startDate?: Date;
     endDate?: Date;
 }) => {
-    const conditions = [];
-
-    if (filters?.type) conditions.push(eq(schema.ecos.type, filters.type as any));
-    if (filters?.stageId) conditions.push(eq(schema.ecos.stageId, filters.stageId));
-    if (filters?.startDate) conditions.push(gte(schema.ecos.createdAt, filters.startDate));
-    if (filters?.endDate) conditions.push(lte(schema.ecos.createdAt, filters.endDate));
+    const conditions: any[] = [];
+    if (filters?.type)      conditions.push(eq(schema.catalogChangeRequests.type, filters.type as any));
+    if (filters?.stageId)   conditions.push(eq(schema.catalogChangeRequests.stageId, filters.stageId));
+    if (filters?.startDate) conditions.push(gte(schema.catalogChangeRequests.createdAt, filters.startDate));
+    if (filters?.endDate)   conditions.push(lte(schema.catalogChangeRequests.createdAt, filters.endDate));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    return db.query.ecos.findMany({
+    return db.query.catalogChangeRequests.findMany({
         where: whereClause,
         with: {
-            createdBy: {
-                columns: {
-                    id: true,
-                    name: true,
-                    email: true,
-                },
-            },
-            stage: true,
-            draftProduct: {
-                columns: {
-                    id: true,
-                    name: true,
-                },
-            },
-            draftBom: {
-                columns: {
-                    id: true,
-                },
-            },
+            createdBy:  { columns: { id: true, name: true, email: true } },
+            stage:      true,
+            draftCatalogItem: { columns: { id: true, name: true, sku: true } },
+            draftVariantSet:  { columns: { id: true } },
         },
-        orderBy: [desc(schema.ecos.createdAt)],
+        orderBy: [desc(schema.catalogChangeRequests.createdAt)],
     });
 };
 
-export const getProductVersions = async (productId?: string) => {
-    const whereClause = productId ? eq(schema.productVersions.productId, productId) : undefined;
+/** CatalogItem Version History (was: getProductVersions) */
+export const getCatalogItemVersionHistory = async (catalogItemId?: string) => {
+    const whereClause = catalogItemId
+        ? eq(schema.catalogItemVersions.catalogItemId, catalogItemId)
+        : undefined;
 
-    return db.query.productVersions.findMany({
+    return db.query.catalogItemVersions.findMany({
         where: whereClause,
         with: {
-            product: {
-                columns: {
-                    id: true,
-                    name: true,
-                },
-            },
+            catalogItem: { columns: { id: true, name: true, sku: true } },
+            content: true,
         },
-        orderBy: [desc(schema.productVersions.version)],
+        orderBy: [desc(schema.catalogItemVersions.version)],
     });
 };
 
-export const getBOMHistory = async (bomId?: string) => {
-    const whereClause = bomId ? eq(schema.bomVersions.bomId, bomId) : undefined;
+/** VariantSet Change History (was: getBOMHistory) */
+export const getVariantSetHistory = async (variantSetId?: string) => {
+    const whereClause = variantSetId
+        ? eq(schema.variantSetVersions.variantSetId, variantSetId)
+        : undefined;
 
-    return db.query.bomVersions.findMany({
+    return db.query.variantSetVersions.findMany({
         where: whereClause,
         with: {
-            bom: {
-                columns: {
-                    id: true,
-                },
-            },
-            components: {
+            variantSet: { columns: { id: true } },
+            variants: {
                 with: {
-                    componentVersion: {
-                        columns: {
-                            id: true,
-                            version: true,
-                            productId: true,
-                        },
-                    },
+                    variantVersion: { columns: { id: true, version: true, catalogItemId: true } },
                 },
             },
-            operations: true,
+            channelPublishRules: true,
         },
-        orderBy: [desc(schema.bomVersions.version)],
+        orderBy: [desc(schema.variantSetVersions.version)],
     });
 };
 
+/** Active CatalogItem-Version-VariantSet Matrix (was: getActiveMatrix) */
 export const getActiveMatrix = async () => {
-    const products = await db.query.products.findMany({
+    const catalogItems = await db.query.catalogItems.findMany({
         with: {
             versions: {
                 where: and(
-                    eq(schema.productVersions.isCurrent, true),
-                    eq(schema.productVersions.status, 'ACTIVE')
+                    eq(schema.catalogItemVersions.isCurrent, true),
+                    eq(schema.catalogItemVersions.status, 'ACTIVE')
                 ),
-                with: {
-                    attachments: true,
-                },
+                with: { content: true },
             },
         },
     });
 
-    const boms = await db.query.boms.findMany({
+    const variantSets = await db.query.variantSets.findMany({
         with: {
             versions: {
                 where: and(
-                    eq(schema.bomVersions.isCurrent, true),
-                    eq(schema.bomVersions.status, 'ACTIVE')
+                    eq(schema.variantSetVersions.isCurrent, true),
+                    eq(schema.variantSetVersions.status, 'ACTIVE')
                 ),
                 with: {
-                    components: {
+                    variants: {
                         with: {
-                            componentVersion: {
-                                columns: {
-                                    id: true,
-                                    version: true,
-                                    productId: true,
-                                },
-                                with: {
-                                    product: {
-                                        columns: {
-                                            name: true,
-                                        },
-                                    },
-                                },
+                            variantVersion: {
+                                columns: { id: true, version: true, catalogItemId: true },
+                                with: { catalogItem: { columns: { name: true, sku: true } } },
                             },
                         },
                     },
-                    operations: true,
+                    channelPublishRules: true,
                 },
             },
         },
     });
 
-    return {
-        products,
-        boms,
-        timestamp: new Date(),
-    };
+    return { catalogItems, variantSets, timestamp: new Date() };
 };
 
-export const getArchivedProducts = async () => {
-    return db.query.productVersions.findMany({
-        where: eq(schema.productVersions.status, 'ARCHIVED'),
+/** Archived CatalogItems (was: getArchivedProducts) */
+export const getArchivedCatalogItems = async () => {
+    return db.query.catalogItemVersions.findMany({
+        where: eq(schema.catalogItemVersions.status, 'ARCHIVED'),
         with: {
-            product: {
-                columns: {
-                    id: true,
-                    name: true,
-                },
-            },
+            catalogItem: { columns: { id: true, name: true, sku: true } },
         },
-        orderBy: [desc(schema.productVersions.createdAt)],
+        orderBy: [desc(schema.catalogItemVersions.createdAt)],
     });
 };
 
 export const reportService = {
-    getECOHistory,
-    getProductVersions,
-    getBOMHistory,
-    getArchivedProducts,
+    getCCRHistory,
+    getCatalogItemVersionHistory,
+    getVariantSetHistory,
+    getArchivedCatalogItems,
     getActiveMatrix,
 };

@@ -2,61 +2,6 @@ import { Response } from 'express';
 import { auditService } from '../service/auditService.js';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
 
-/**
- * @swagger
- * /api/audit:
- *   get:
- *     summary: Retrieve audit logs with optional filtering
- *     tags: [Audit]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: entity
- *         schema:
- *           type: string
- *         description: Filter by entity type (e.g., ECO, Product, BOM)
- *       - in: query
- *         name: entityId
- *         schema:
- *           type: string
- *         description: Filter by entity ID
- *       - in: query
- *         name: userId
- *         schema:
- *           type: string
- *         description: Filter by user ID
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 50
- *         description: Number of logs to return
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *         description: Number of logs to skip
- *     responses:
- *       200:
- *         description: List of audit logs
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 logs:
- *                   type: array
- *                   items:
- *                     type: object
- *                 total:
- *                   type: integer
- *                 limit:
- *                   type: integer
- *                 offset:
- *                   type: integer
- */
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
         const {
@@ -89,71 +34,29 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     }
 };
 
-/**
- * @swagger
- * /api/audit/eco/{ecoId}:
- *   get:
- *     summary: Get audit logs for a specific ECO
- *     tags: [Audit]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: ecoId
- *         required: true
- *         schema:
- *           type: string
- *         description: ECO ID
- *     responses:
- *       200:
- *         description: List of audit logs for the ECO
- */
-export const getECOAuditLogs = async (req: AuthRequest, res: Response) => {
+export const getCCRAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
-        const { ecoId } = req.params;
-        if (!ecoId || Array.isArray(ecoId)) {
-            return res.status(400).json({ error: 'ECO ID is required' });
+        const id = req.params.ccrId || req.params.ecoId;
+        if (!id || Array.isArray(id)) {
+            return res.status(400).json({ error: 'CCR ID is required' });
         }
-        const result = await auditService.getAuditLogsByECO(ecoId);
+        const result = await auditService.getAuditLogsByCCR(id as string);
         res.json(result);
     } catch (error: any) {
-        console.error('Get ECO audit logs error:', error);
-        res.status(500).json({ error: 'Failed to fetch ECO audit logs' });
+        console.error('Get CCR audit logs error:', error);
+        res.status(500).json({ error: 'Failed to fetch CCR audit logs' });
     }
 };
 
-/**
- * @swagger
- * /api/audit/entity/{entity}/{entityId}:
- *   get:
- *     summary: Get audit logs for a specific entity
- *     tags: [Audit]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: entity
- *         required: true
- *         schema:
- *           type: string
- *         description: Entity type (e.g., Product, BOM)
- *       - in: path
- *         name: entityId
- *         required: true
- *         schema:
- *           type: string
- *         description: Entity ID
- *     responses:
- *       200:
- *         description: List of audit logs for the entity
- */
+export const getECOAuditLogs = getCCRAuditLogs;
+
 export const getEntityAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
         const { entity, entityId } = req.params;
         if (!entity || !entityId || Array.isArray(entity) || Array.isArray(entityId)) {
             return res.status(400).json({ error: 'Entity type and ID are required' });
         }
-        const result = await auditService.getAuditLogsByEntity(entity, entityId);
+        const result = await auditService.getAuditLogsByEntity(entity as string, entityId as string);
         res.json(result);
     } catch (error: any) {
         console.error('Get entity audit logs error:', error);

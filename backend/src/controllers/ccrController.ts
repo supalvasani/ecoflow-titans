@@ -1,0 +1,297 @@
+import { Response } from 'express';
+import { ccrService } from '../service/ccrService.js';
+import { AuthRequest } from '../middlewares/authMiddleware.js';
+import { CCRType } from '../db/schema.js';
+
+export const createCCR = async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            title,
+            type,
+            assigneeId,
+            effectiveDate,
+            versionUpdate,
+            catalogItemId,
+            productId,
+            variantSetId,
+            bomId,
+            rollbackTargetVersionId,
+            initialChanges,
+        } = req.body;
+        const userId = req.user!.userId;
+
+        const dateObj = effectiveDate ? new Date(effectiveDate) : undefined;
+        const targetCatalogItemId = catalogItemId || productId;
+        const targetVariantSetId = variantSetId || bomId;
+
+        // Map legacy types if sent
+        let ccrType: CCRType = type as CCRType;
+        if ((type as string) === 'PRODUCT') ccrType = 'CATALOG_ITEM';
+        if ((type as string) === 'BOM' || (type as string) === 'BOM_CHANGE') ccrType = 'VARIANT_SET';
+
+        const ccr = await ccrService.createCCR({
+            title,
+            type: ccrType,
+            createdById: userId,
+            ...(assigneeId ? { assigneeId } : {}),
+            ...(dateObj ? { effectiveDate: dateObj } : {}),
+            ...(versionUpdate !== undefined ? { versionUpdate } : {}),
+            ...(targetCatalogItemId ? { catalogItemId: targetCatalogItemId } : {}),
+            ...(targetVariantSetId ? { variantSetId: targetVariantSetId } : {}),
+            ...(rollbackTargetVersionId ? { rollbackTargetVersionId } : {}),
+            initialChanges,
+        });
+
+        res.status(201).json({
+            message: 'Catalog Change Request created successfully',
+            ccr,
+            eco: ccr, // backward compat
+        });
+    } catch (error: any) {
+        console.error('Create CCR error:', error);
+        res.status(400).json({ error: error.message || 'Failed to create Catalog Change Request' });
+    }
+};
+
+export const getCCRs = async (req: AuthRequest, res: Response) => {
+    try {
+        const userRole = req.user!.role;
+        const filters: { type?: CCRType; stageId?: string } = {};
+
+        if (req.query.type) {
+            let t = req.query.type as string;
+            if (t === 'PRODUCT') t = 'CATALOG_ITEM';
+            if (t === 'BOM') t = 'VARIANT_SET';
+            filters.type = t as CCRType;
+        }
+        if (req.query.stageId) {
+            filters.stageId = req.query.stageId as string;
+        }
+
+        const ccrs = await ccrService.getCCRs(userRole, filters);
+        res.json({ ccrs, ecos: ccrs });
+    } catch (error: any) {
+        if (error.statusCode === 403 || (error.message && error.message.includes('Access denied'))) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Get CCRs error:', error);
+        res.status(500).json({ error: 'Failed to fetch CCRs' });
+    }
+};
+
+export const getCCRById = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userRole = req.user!.role;
+
+        const ccr = await ccrService.getCCRById(id as string, userRole);
+        res.json({ ccr, eco: ccr });
+    } catch (error: any) {
+        if (error.message === 'CCR not found' || error.message === 'ECO not found') {
+            return res.status(404).json({ error: error.message });
+        }
+        if (error.message.includes('Access denied')) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Get CCR error:', error);
+        res.status(500).json({ error: 'Failed to fetch CCR' });
+    }
+};
+
+export const updateDraft = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const changes = req.body;
+        const userId = req.user!.userId;
+
+        const ccr = await ccrService.updateDraft(id as string, changes, userId);
+        res.json({
+            message: 'Draft updated successfully',
+            ccr,
+            eco: ccr,
+        });
+    } catch (error: any) {
+        console.error('Update draft error:', error);
+        res.status(400).json({ error: error.message || 'Failed to update draft' });
+    }
+};
+
+export const addDraftContent = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { filename, url, action, locale, contentType, approved } = req.body;
+        const userId = req.user!.userId;
+
+        const content = await ccrService.addDraftContent(
+            id as string,
+            filename,
+            url,
+            action || 'ADD',
+            userId,
+            { locale, contentType, approved }
+        );
+        res.status(201).json({
+            message: 'Draft content added successfully',
+            content,
+            attachment: content,
+        });
+    } catch (error: any) {
+        console.error('Add draft content error:', error);
+        res.status(400).json({ error: error.message || 'Failed to add draft content' });
+    }
+};
+
+export const submitForReview = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.userId;
+
+        const ccr = await ccrService.submitForReview(id as string, userId);
+        res.json({
+            message: 'CCR submitted for review successfully',
+            ccr,
+            eco: ccr,
+        });
+    } catch (error: any) {
+        console.error('Submit for review error:', error);
+        res.status(400).json({ error: error.message || 'Failed to submit CCR for review' });
+    }
+};
+
+export const validateCCR = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const result = await ccrService.validateCCR(id as string);
+        res.json({
+            message: 'CCR validation completed',
+            ...result,
+        });
+    } catch (error: any) {
+        console.error('Validate CCR error:', error);
+        res.status(400).json({ error: error.message || 'Failed to validate CCR' });
+    }
+};
+
+export const approveCCR = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { comment } = req.body;
+        const userId = req.user!.userId;
+        const userRole = req.user!.role;
+
+        const result = await ccrService.approveCCR(id as string, userId, userRole, comment);
+        res.json({
+            message: 'CCR approval recorded successfully',
+            ...result,
+            eco: result.ccr,
+        });
+    } catch (error: any) {
+        if (error.message.includes('Only approvers') || error.message.includes('Forbidden') || error.message.includes('Access denied')) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Approve CCR error:', error);
+        res.status(400).json({ error: error.message || 'Failed to approve CCR' });
+    }
+};
+
+export const rejectCCR = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const userId = req.user!.userId;
+        const userRole = req.user!.role;
+
+        const ccr = await ccrService.rejectCCR(id as string, userId, reason, userRole);
+        res.json({
+            message: 'CCR rejected successfully',
+            ccr,
+            eco: ccr,
+        });
+    } catch (error: any) {
+        if (error.message.includes('Only approvers') || error.message.includes('Forbidden') || error.message.includes('Access denied')) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Reject CCR error:', error);
+        res.status(400).json({ error: error.message || 'Failed to reject CCR' });
+    }
+};
+
+export const applyCCR = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.userId;
+
+        const result = await ccrService.applyCCR(id as string, userId);
+        res.json({
+            message: 'CCR applied successfully. New version created.',
+            ccr: result.ccr,
+            eco: result.ccr,
+            newVersion: result.newVersion,
+        });
+    } catch (error: any) {
+        console.error('Apply CCR error:', error);
+        res.status(400).json({ error: error.message || 'Failed to apply CCR' });
+    }
+};
+
+export const getCCRStatistics = async (req: AuthRequest, res: Response) => {
+    try {
+        const userRole = req.user!.role;
+        const statistics = await ccrService.getCCRStatistics(userRole);
+        res.json({ statistics });
+    } catch (error: any) {
+        console.error('Get CCR statistics error:', error);
+        res.status(500).json({ error: 'Failed to fetch CCR statistics' });
+    }
+};
+
+export const setMandatoryApproval = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { mandatoryApproval } = req.body;
+        const userId = req.user!.userId;
+        const userRole = req.user!.role;
+
+        if (typeof mandatoryApproval !== 'boolean') {
+            return res.status(400).json({ error: 'mandatoryApproval must be a boolean' });
+        }
+
+        const ccr = await ccrService.setMandatoryApproval(id as string, mandatoryApproval, userId, userRole);
+        res.json({
+            message: 'Mandatory approval flag updated successfully',
+            ccr,
+            eco: ccr,
+        });
+    } catch (error: any) {
+        if (error.message.includes('Only admins')) {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Set mandatory approval error:', error);
+        res.status(400).json({ error: error.message || 'Failed to update mandatory approval flag' });
+    }
+};
+
+export const previewDiff = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userRole = req.user!.role;
+
+        const diff = await ccrService.previewCCRDiff(id as string, userRole);
+        res.json({ diff });
+    } catch (error: any) {
+        console.error('Preview CCR diff error:', error);
+        res.status(400).json({ error: error.message || 'Failed to generate diff' });
+    }
+};
+
+// Aliases for backwards compatibility
+export const createECO = createCCR;
+export const getECOs = getCCRs;
+export const getECOById = getCCRById;
+export const addDraftAttachment = addDraftContent;
+export const validateECO = validateCCR;
+export const approveECO = approveCCR;
+export const rejectECO = rejectCCR;
+export const applyECO = applyCCR;
+export const getECOStatistics = getCCRStatistics;

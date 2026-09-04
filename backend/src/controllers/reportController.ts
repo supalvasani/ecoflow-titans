@@ -2,44 +2,15 @@ import { Response } from 'express';
 import { reportService } from '../service/reportService.js';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
 
-/**
- * @swagger
- * /api/reports/eco-history:
- *   get:
- *     summary: Get ECO change history with filters
- *     tags: [Reports]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [PRODUCT, BOM]
- *       - in: query
- *         name: stageId
- *         schema:
- *           type: string
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *           format: date-time
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *           format: date-time
- *     responses:
- *       200:
- *         description: ECO audit trail
- */
-export const getECOHistory = async (req: AuthRequest, res: Response) => {
+export const getCCRHistory = async (req: AuthRequest, res: Response) => {
     try {
         const filters: any = {};
 
         if (req.query.type) {
-            filters.type = req.query.type;
+            let t = req.query.type as string;
+            if (t === 'PRODUCT') t = 'CATALOG_ITEM';
+            if (t === 'BOM') t = 'VARIANT_SET';
+            filters.type = t;
         }
         if (req.query.stageId) {
             filters.stageId = req.query.stageId as string;
@@ -51,82 +22,36 @@ export const getECOHistory = async (req: AuthRequest, res: Response) => {
             filters.endDate = new Date(req.query.endDate as string);
         }
 
-        const history = await reportService.getECOHistory(filters);
+        const history = await reportService.getCCRHistory(filters);
         res.json({ history });
     } catch (error: any) {
-        console.error('Get ECO history error:', error);
-        res.status(500).json({ error: 'Failed to fetch ECO history' });
+        console.error('Get CCR history error:', error);
+        res.status(500).json({ error: 'Failed to fetch CCR history' });
     }
 };
 
-/**
- * @swagger
- * /api/reports/product-versions:
- *   get:
- *     summary: List all product versions across products
- *     tags: [Reports]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: productId
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Product version matrix
- */
-export const getProductVersions = async (req: AuthRequest, res: Response) => {
+export const getCatalogItemVersions = async (req: AuthRequest, res: Response) => {
     try {
-        const productId = req.query.productId as string | undefined;
-        const versions = await reportService.getProductVersions(productId);
+        const catalogItemId = (req.query.catalogItemId || req.query.productId) as string | undefined;
+        const versions = await reportService.getCatalogItemVersionHistory(catalogItemId);
         res.json({ versions });
     } catch (error: any) {
-        console.error('Get product versions error:', error);
-        res.status(500).json({ error: 'Failed to fetch product versions' });
+        console.error('Get catalog item versions error:', error);
+        res.status(500).json({ error: 'Failed to fetch catalog item versions' });
     }
 };
 
-/**
- * @swagger
- * /api/reports/bom-history:
- *   get:
- *     summary: Retrieve BOM change history
- *     tags: [Reports]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: bomId
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: BOM change log
- */
-export const getBOMHistory = async (req: AuthRequest, res: Response) => {
+export const getVariantSetHistory = async (req: AuthRequest, res: Response) => {
     try {
-        const bomId = req.query.bomId as string | undefined;
-        const history = await reportService.getBOMHistory(bomId);
+        const variantSetId = (req.query.variantSetId || req.query.bomId) as string | undefined;
+        const history = await reportService.getVariantSetHistory(variantSetId);
         res.json({ history });
     } catch (error: any) {
-        console.error('Get BOM history error:', error);
-        res.status(500).json({ error: 'Failed to fetch BOM history' });
+        console.error('Get VariantSet history error:', error);
+        res.status(500).json({ error: 'Failed to fetch VariantSet history' });
     }
 };
 
-/**
- * @swagger
- * /api/reports/active-matrix:
- *   get:
- *     summary: Show current active versions of all products and BOMs
- *     tags: [Reports]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Current active state snapshot
- */
 export const getActiveMatrix = async (req: AuthRequest, res: Response) => {
     try {
         const matrix = await reportService.getActiveMatrix();
@@ -137,24 +62,18 @@ export const getActiveMatrix = async (req: AuthRequest, res: Response) => {
     }
 };
 
-/**
- * @swagger
- * /api/reports/archived-products:
- *   get:
- *     summary: Retrieve archived products versions list
- *     tags: [Reports]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of archived products versions
- */
-export const getArchivedProducts = async (req: AuthRequest, res: Response) => {
+export const getArchivedCatalogItems = async (req: AuthRequest, res: Response) => {
     try {
-        const archived = await reportService.getArchivedProducts();
+        const archived = await reportService.getArchivedCatalogItems();
         res.json({ archived });
     } catch (error: any) {
-        console.error('Get archived products error:', error);
-        res.status(500).json({ error: 'Failed to fetch archived products' });
+        console.error('Get archived catalog items error:', error);
+        res.status(500).json({ error: 'Failed to fetch archived catalog items' });
     }
 };
+
+// Aliases for backwards compatibility
+export const getECOHistory = getCCRHistory;
+export const getProductVersions = getCatalogItemVersions;
+export const getBOMHistory = getVariantSetHistory;
+export const getArchivedProducts = getArchivedCatalogItems;
